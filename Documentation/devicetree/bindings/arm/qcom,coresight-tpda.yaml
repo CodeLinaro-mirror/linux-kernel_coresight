@@ -58,6 +58,26 @@ properties:
     minItems: 1
     maxItems: 2
 
+  qcom,dsb-element-size:
+    description: |
+      Specifies the DSB(Discrete Single Bit) element size supported by
+      each monitor connected to the aggregator on each port. Should be
+      specified in pairs <port, dsb element size>.
+
+      Note: The maximum value of the port number depends on how many
+      input ports the current TPDA has. DSB element size currently only
+      supports 32-bit and 64-bit.
+    $ref: /schemas/types.yaml#/definitions/uint32-matrix
+    items:
+      items:
+        - description: |
+            "port" indicates TPDA input port number
+          minimum: 0
+        - description: |
+            "dsb element size" indicates dsb element size
+          minimum: 0
+          maximum: 64
+
   clocks:
     maxItems: 1
 
@@ -99,6 +119,8 @@ examples:
     tpda@6004000 {
        compatible = "qcom,coresight-tpda", "arm,primecell";
        reg = <0x6004000 0x1000>;
+
+       qcom,dsb-element-size = <0 32>;
 
        clocks = <&aoss_qmp>;
        clock-names = "apb_pclk";
