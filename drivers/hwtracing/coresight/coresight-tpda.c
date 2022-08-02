@@ -37,6 +37,15 @@ static void tpda_enable_port(struct tpda_drvdata *drvdata, int port)
 	u32 val;
 
 	val = readl_relaxed(drvdata->base + TPDA_Pn_CR(port));
+	/*
+	 * Configure aggregator port n DSB data set element size
+	 * Set the bit to 0 if the size is 32
+	 * Set the bit to 1 if the size is 64
+	 */
+	if (drvdata->dsb_esize[port] == 32)
+		val &= ~TPDA_Pn_CR_DSBSIZE;
+	else if (drvdata->dsb_esize[port] == 64)
+		val |= TPDA_Pn_CR_DSBSIZE;
 	/* Enable the port */
 	val |= TPDA_Pn_CR_ENA;
 	writel_relaxed(val, drvdata->base + TPDA_Pn_CR(port));
@@ -105,6 +114,55 @@ static const struct coresight_ops tpda_cs_ops = {
 	.link_ops	= &tpda_link_ops,
 };
 
+static int tpda_parse_dsb(struct tpda_drvdata *drvdata)
+{
+	int len, port, i;
+	const __be32 *prop;
+	struct device_node *node = drvdata->dev->of_node;
+
+	/* Read the size of DSB element */
+	prop = of_get_property(node, "qcom,dsb-elem-size", &len);
+	if (prop) {
+		len /= sizeof(__be32);
+		/*
+		 * The read set of data is port and size, so the number of data
+		 * is a multiple of two. And the number of data will not exceed
+		 * two times that of the TPDA inpurts number.
+		 */
+		if (len < 2 || len >= (2 * TPDA_MAX_INPORTS) || len % 2 != 0) {
+			dev_err(drvdata->dev,
+				"Dataset DSB width entries are wrong\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < len; i += 2) {
+			port = be32_to_cpu(prop[i]);
+			if (port >= TPDA_MAX_INPORTS) {
+				dev_err(drvdata->dev,
+					"Wrong port specified for DSB\n");
+				return -EINVAL;
+			}
+			/* Set DSB element size for corresponding port to dsb_esize*/
+			drvdata->dsb_esize[port] = be32_to_cpu(prop[i + 1]);
+		}
+	}
+
+	return 0;
+}
+
+static int tpda_parse_of_data(struct tpda_drvdata *drvdata)
+{
+	int ret;
+
+	ret = tpda_parse_dsb(drvdata);
+	if (ret) {
+		dev_err(drvdata->dev, "Fail to get DSB data set element size\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int tpda_init_default_data(struct tpda_drvdata *drvdata)
 {
 	int atid;
@@ -150,6 +208,10 @@ static int tpda_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->base = base;
 
 	spin_lock_init(&drvdata->spinlock);
+
+	ret = tpda_parse_of_data(drvdata);
+	if (ret)
+		return ret;
 
 	ret = tpda_init_default_data(drvdata);
 	if (ret)
