@@ -19,6 +19,16 @@
 #define TPDM_DSB_XTRIG_TSENAB		BIT(1)
 /* Enable bit for DSB subunit trigger type */
 #define TPDM_DSB_TRIG_TYPE		BIT(12)
+/* Enable bit for DSB subunit perfmance mode */
+#define TPDM_DSB_MODE		BIT(1)
+
+/* DSB programming modes */
+#define TPDM_DSB_MODE_CYCACC(val)	(val & GENMASK(2, 0))
+#define TPDM_DSB_MODE_PERF		BIT(3)
+#define TPDM_DSB_MODE_HPBYTESEL(val)	(val & GENMASK(8, 4))
+#define TPDM_MODE_ALL			(0xFFFFFFF)
+#define TPDM_DSB_TEST_MODE		GENMASK(11, 9)
+#define TPDM_DSB_HPSEL		GENMASK(6, 2)
 
 /* TPDM integration test registers */
 #define TPDM_ITATBCNTRL		(0xEF0)
@@ -48,10 +58,12 @@
 
 /**
  * struct dsb_dataset - specifics associated to dsb dataset
+ * @mode:             DSB programming mode
  * @trig_ts:          Enable/Disable trigger timestamp.
  * @trig_type:        Enable/Disable trigger type.
  */
 struct dsb_dataset {
+	u32				mode;
 	bool			trig_ts;
 	bool			trig_type;
 };
