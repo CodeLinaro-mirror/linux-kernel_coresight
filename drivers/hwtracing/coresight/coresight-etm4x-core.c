@@ -528,7 +528,7 @@ static int etm4_enable_hw(struct etmv4_drvdata *drvdata)
 done:
 	etm4_cs_lock(drvdata, csa);
 
-	dev_dbg(etm_dev, "cpu: %d enable smp call done: %d\n",
+	dev_info(etm_dev, "cpu: %d enable smp call done: %d\n",
 		drvdata->cpu, rc);
 	return rc;
 }
@@ -818,7 +818,7 @@ unlock_sysfs_enable:
 	spin_unlock(&drvdata->spinlock);
 
 	if (!ret)
-		dev_dbg(&csdev->dev, "ETM tracing enabled\n");
+		dev_info(&csdev->dev, "ETM tracing enabled\n");
 	return ret;
 }
 
@@ -913,7 +913,7 @@ static void etm4_disable_hw(void *info)
 	coresight_disclaim_device_unlocked(csdev);
 	etm4_cs_lock(drvdata, csa);
 
-	dev_dbg(&drvdata->csdev->dev,
+	dev_info(&drvdata->csdev->dev,
 		"cpu: %d disable smp call done\n", drvdata->cpu);
 }
 
@@ -983,7 +983,7 @@ static void etm4_disable_sysfs(struct coresight_device *csdev)
 	 * prior trace id allocation method
 	 */
 
-	dev_dbg(&csdev->dev, "ETM tracing disabled\n");
+	dev_info(&csdev->dev, "ETM tracing disabled\n");
 }
 
 static void etm4_disable(struct coresight_device *csdev,

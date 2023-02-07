@@ -213,7 +213,7 @@ static int stm_enable(struct coresight_device *csdev,
 	stm_enable_hw(drvdata);
 	spin_unlock(&drvdata->spinlock);
 
-	dev_dbg(&csdev->dev, "STM tracing enabled\n");
+	dev_info(&csdev->dev, "STM tracing enabled\n");
 	return 0;
 }
 
@@ -277,7 +277,7 @@ static void stm_disable(struct coresight_device *csdev,
 		pm_runtime_put(csdev->dev.parent);
 
 		local_set(&drvdata->mode, CS_MODE_DISABLED);
-		dev_dbg(&csdev->dev, "STM tracing disabled\n");
+		dev_info(&csdev->dev, "STM tracing disabled\n");
 	}
 }
 
