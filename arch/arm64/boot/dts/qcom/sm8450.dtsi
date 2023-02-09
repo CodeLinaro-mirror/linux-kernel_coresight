@@ -5020,3 +5020,4 @@
 		clock-frequency = <19200000>;
 	};
 };
+#include "sm8450-coresight.dtsi"
