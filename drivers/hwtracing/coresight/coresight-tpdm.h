@@ -12,6 +12,8 @@
 /* CMB Subunit Registers*/
 /*CMB subunit global control register*/
 #define TPDM_CMB_CR		(0xA00)
+/*CMB subunit timestamp insertion enable register*/
+#define TPDM_CMB_TIER		(0xA04)
 /*CMB subunit timestamp pattern registers*/
 #define TPDM_CMB_TPR(n)		(0xA08 + (n * 4))
 /*CMB subunit timestamp pattern mask registers*/
@@ -25,6 +27,12 @@
 #define TPDM_CMB_CR_ENA		BIT(0)
 /* Trace collection mode for CMB subunit*/
 #define TPDM_CMB_CR_MODE	BIT(1)
+/* Timestamp control for pattern match */
+#define TPDM_CMB_TIER_PATT_TSENAB	BIT(0)
+/* CMB CTI timestamp request */
+#define TPDM_CMB_TIER_XTRIG_TSENAB	BIT(1)
+/* For timestamp fo all trace*/
+#define TPDM_CMB_TIER_TS_ALL		BIT(2)
 
 /*Patten register number*/
 #define TPDM_CMB_PATT_CMP	2
@@ -145,6 +153,9 @@ struct cmb_dataset {
 	u32			patt_mask[TPDM_CMB_PATT_CMP];
 	u32			trig_patt_val[TPDM_CMB_PATT_CMP];
 	u32			trig_patt_mask[TPDM_CMB_PATT_CMP];
+	bool			patt_ts;
+	bool			trig_ts;
+	bool			ts_all;
 };
 
 /*
