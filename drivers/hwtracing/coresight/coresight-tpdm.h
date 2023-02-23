@@ -15,6 +15,8 @@
 
 /* Enable bit for CMB subunit */
 #define TPDM_CMB_CR_ENA		BIT(0)
+/* Trace collection mode for CMB subunit*/
+#define TPDM_CMB_CR_MODE	BIT(1)
 
 /* DSB Subunit Registers */
 #define TPDM_DSB_CR		(0x780)
@@ -37,7 +39,7 @@
 /* Enable bit for DSB subunit trigger type */
 #define TPDM_DSB_TRIG_TYPE		BIT(12)
 /* Enable bit for DSB subunit perfmance mode */
-#define TPDM_DSB_MODE		BIT(1)
+#define TPDM_DSB_MODE			BIT(1)
 
 /* DSB programming modes */
 #define TPDM_DSB_MODE_CYCACC(val)	(val & GENMASK(2, 0))
@@ -113,7 +115,15 @@ struct dsb_dataset {
 	bool			trig_type;
 };
 
-/**
+/*
+ * struct cmb_dataset
+ * @trace_mode:		Dataset collection mode
+ */
+struct cmb_dataset {
+	u32				trace_mode;
+};
+
+/*
  * struct tpdm_drvdata - specifics associated to an TPDM component
  * @base:       memory mapped base address for this component.
  * @dev:        The device entity associated to this component.
@@ -121,8 +131,8 @@ struct dsb_dataset {
  * @spinlock:   lock for the drvdata value.
  * @enable:     enable status of the component.
  * @datasets:   The datasets types present of the TPDM.
+ * @cmb:	cmb dataset struct data.
  */
-
 struct tpdm_drvdata {
 	void __iomem		*base;
 	struct device		*dev;
@@ -131,6 +141,7 @@ struct tpdm_drvdata {
 	bool			enable;
 	unsigned long		datasets;
 	struct dsb_dataset	*dsb;
+	struct cmb_dataset	*cmb;
 };
 
 #endif  /* _CORESIGHT_CORESIGHT_TPDM_H */
