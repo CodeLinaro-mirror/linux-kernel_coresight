@@ -140,6 +140,22 @@ static void tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
 			    drvdata->base + TPDM_CMB_XPMR(i));
 	}
 
+	val = readl_relaxed(drvdata->base + TPDM_CMB_TIER);
+	if (drvdata->cmb->patt_ts)
+		val = val | TPDM_CMB_TIER_PATT_TSENAB;
+	else
+		val = val & ~TPDM_CMB_TIER_PATT_TSENAB;
+	if (drvdata->cmb->trig_ts)
+		val = val | TPDM_CMB_TIER_XTRIG_TSENAB;
+	else
+		val = val & ~TPDM_CMB_TIER_XTRIG_TSENAB;
+	if (drvdata->cmb->ts_all)
+		val = val | TPDM_CMB_TIER_TS_ALL;
+	else
+		val = val & ~TPDM_CMB_TIER_TS_ALL;
+	writel_relaxed(val, drvdata->base + TPDM_CMB_TIER);
+
+
 	val = readl_relaxed(drvdata->base + TPDM_CMB_CR);
 	/*
 	 * Set to 0 for continuous CMB collection mode,
@@ -1013,6 +1029,101 @@ static ssize_t cmb_trig_patt_mask_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(cmb_trig_patt_mask);
 
+static ssize_t cmb_patt_ts_show(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n",
+			 (unsigned int)drvdata->cmb->patt_ts);
+}
+
+static ssize_t cmb_patt_ts_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf,
+				      size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	if (val)
+		drvdata->cmb->patt_ts = true;
+	else
+		drvdata->cmb->patt_ts = false;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(cmb_patt_ts);
+
+static ssize_t cmb_ts_all_show(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n",
+			 (unsigned int)drvdata->cmb->ts_all);
+}
+
+static ssize_t cmb_ts_all_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf,
+				      size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	if (val)
+		drvdata->cmb->ts_all = true;
+	else
+		drvdata->cmb->ts_all = false;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(cmb_ts_all);
+
+static ssize_t cmb_trig_ts_show(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n",
+			 (unsigned int)drvdata->cmb->trig_ts);
+}
+
+static ssize_t cmb_trig_ts_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf,
+				      size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	if (val)
+		drvdata->cmb->trig_ts = true;
+	else
+		drvdata->cmb->trig_ts = false;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(cmb_trig_ts);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1034,6 +1145,9 @@ static struct attribute *tpdm_cmb_attrs[] = {
 	&dev_attr_cmb_patt_mask.attr,
 	&dev_attr_cmb_trig_patt_val.attr,
 	&dev_attr_cmb_trig_patt_mask.attr,
+	&dev_attr_cmb_patt_ts.attr,
+	&dev_attr_cmb_ts_all.attr,
+	&dev_attr_cmb_trig_ts.attr,
 	NULL,
 };
 
