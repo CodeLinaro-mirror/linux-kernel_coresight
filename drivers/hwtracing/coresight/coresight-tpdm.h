@@ -12,11 +12,27 @@
 /* CMB Subunit Registers*/
 /*CMB subunit global control register*/
 #define TPDM_CMB_CR		(0xA00)
+/*CMB subunit timestamp pattern registers*/
+#define TPDM_CMB_TPR(n)		(0xA08 + (n * 4))
+/*CMB subunit timestamp pattern mask registers*/
+#define TPDM_CMB_TPMR(n)	(0xA10 + (n * 4))
+/*CMB subunit trigger pattern registers*/
+#define TPDM_CMB_XPR(n)		(0xA18 + (n * 4))
+/*CMB subunit trigger pattern mask registers*/
+#define TPDM_CMB_XPMR(n)	(0xA20 + (n * 4))
 
 /* Enable bit for CMB subunit */
 #define TPDM_CMB_CR_ENA		BIT(0)
 /* Trace collection mode for CMB subunit*/
 #define TPDM_CMB_CR_MODE	BIT(1)
+
+/*Patten register number*/
+#define TPDM_CMB_PATT_CMP	2
+
+enum tpdm_cmb_patt_bits {
+	TPDM_CMB_LSB,
+	TPDM_CMB_MSB,
+};
 
 /* DSB Subunit Registers */
 #define TPDM_DSB_CR		(0x780)
@@ -116,11 +132,19 @@ struct dsb_dataset {
 };
 
 /*
- * struct cmb_dataset
+ * struct cmb_dataset - specifics associated to cmb dataset
  * @trace_mode:		Dataset collection mode
+ * @patt_val:         Save value for pattern
+ * @patt_mask:        Save value for pattern mask
+ * @trig_patt_val:    Save value for trigger pattern
+ * @trig_patt_mask:   Save value for trigger pattern mask
  */
 struct cmb_dataset {
-	u32				trace_mode;
+	u32			trace_mode;
+	u32			patt_val[TPDM_CMB_PATT_CMP];
+	u32			patt_mask[TPDM_CMB_PATT_CMP];
+	u32			trig_patt_val[TPDM_CMB_PATT_CMP];
+	u32			trig_patt_mask[TPDM_CMB_PATT_CMP];
 };
 
 /*
