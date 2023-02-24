@@ -155,6 +155,9 @@ static void tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
 		val = val & ~TPDM_CMB_TIER_TS_ALL;
 	writel_relaxed(val, drvdata->base + TPDM_CMB_TIER);
 
+	/* Configure MSR registers */
+	for (i = 0; i < TPDM_CMB_MAX_MSR; i++)
+		writel_relaxed(drvdata->cmb->msr[i], drvdata->base + TPDM_CMB_MSR(i));
 
 	val = readl_relaxed(drvdata->base + TPDM_CMB_CR);
 	/*
@@ -1164,6 +1167,44 @@ static ssize_t cmb_trig_ts_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(cmb_trig_ts);
 
+static ssize_t cmb_msr_show(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned int i;
+	ssize_t len = 0;
+
+	for (i = 0; i < TPDM_CMB_MAX_MSR; i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%u 0x%x\n",
+				 i, drvdata->cmb->msr[i]);
+
+	return len;
+}
+
+static ssize_t cmb_msr_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf,
+				  size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned int num, val;
+	int nval;
+
+	nval = sscanf(buf, "%u %x", &num, &val);
+	if (nval != 2)
+		return -EINVAL;
+
+	if (num >= TPDM_CMB_MAX_MSR)
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	drvdata->cmb->msr[num] = val;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(cmb_msr);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1176,6 +1217,7 @@ static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_trig_patt_mask.attr,
 	&dev_attr_dsb_trig_ts.attr,
 	&dev_attr_dsb_trig_type.attr,
+	&dev_attr_cmb_msr.attr,
 	NULL,
 };
 

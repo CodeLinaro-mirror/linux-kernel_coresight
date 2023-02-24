@@ -22,6 +22,8 @@
 #define TPDM_CMB_XPR(n)		(0xA18 + (n * 4))
 /*CMB subunit trigger pattern mask registers*/
 #define TPDM_CMB_XPMR(n)	(0xA20 + (n * 4))
+/*CMB Mux Select Registers*/
+#define TPDM_CMB_MSR(n)		(0xA80 + (n * 4))
 
 /* Enable bit for CMB subunit */
 #define TPDM_CMB_CR_ENA		BIT(0)
@@ -36,6 +38,8 @@
 
 /*Patten register number*/
 #define TPDM_CMB_PATT_CMP	2
+/*MSR register number*/
+#define TPDM_CMB_MAX_MSR	32
 
 enum tpdm_cmb_patt_bits {
 	TPDM_CMB_LSB,
@@ -153,6 +157,7 @@ struct cmb_dataset {
 	u32			patt_mask[TPDM_CMB_PATT_CMP];
 	u32			trig_patt_val[TPDM_CMB_PATT_CMP];
 	u32			trig_patt_mask[TPDM_CMB_PATT_CMP];
+	u32			msr[TPDM_CMB_MAX_MSR];
 	bool			patt_ts;
 	bool			trig_ts;
 	bool			ts_all;
