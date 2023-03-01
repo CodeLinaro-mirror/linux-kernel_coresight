@@ -11,3 +11,64 @@ Description:
 		Accepts only one of the 2 values -  1 or 2.
 		1 : Generate 64 bits data
 		2 : Generate 32 bits data
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_mode
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write CMB data collection mode.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_patt_mask
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write CMB timestamp pattern mask.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_patt_ts
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write status of timestamp upon CMB interface pattern match.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_patt_val
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write CMB interface timestamp request pattern match control.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_trig_patt_mask_lsb
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write the value of CMB subunit trigger pattern mask.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_trig_patt_mask_msb
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write the value of CMB subunit trigger pattern mask.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_trig_patt_val_lsb
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write the value of CMB subunit trigger pattern match.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_trig_patt_val_msb
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write the value of CMB subunit trigger pattern match.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_trig_ts
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write the status of timestamp upon CMB cross trigger interface.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_ts_all
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write the status of timestamp upon all interface.
+
