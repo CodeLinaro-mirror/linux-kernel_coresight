@@ -172,6 +172,17 @@ static void tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
 	writel_relaxed(val, drvdata->base + TPDM_CMB_CR);
 }
 
+static void tpdm_enable_tc(struct tpdm_drvdata *drvdata)
+{
+	u32 val;
+
+	val = readl_relaxed(drvdata->base + TPDM_TC_CR);
+	/* Set the enable bit of TC control register to 1 */
+	val |= TPDM_TC_CR_ENA;
+
+	writel_relaxed(val, drvdata->base + TPDM_TC_CR);
+}
+
 /* TPDM enable operations
  * The TPDM or Monitor serves as data collection component for various
  * dataset types. It covers Basic Counts(BC), Tenure Counts(TC),
@@ -186,8 +197,10 @@ static void __tpdm_enable(struct tpdm_drvdata *drvdata)
 	/* Enable dataset packet */
 	if (drvdata->datasets & TPDM_PIDR0_DS_DSB)
 		tpdm_enable_dsb(drvdata);
-	else if (drvdata->datasets & TPDM_PIDR0_DS_CMB)
+	if (drvdata->datasets & TPDM_PIDR0_DS_CMB)
 		tpdm_enable_cmb(drvdata);
+	if (drvdata->datasets & TPDM_PIDR0_DS_TC)
+		tpdm_enable_tc(drvdata);
 
 	CS_LOCK(drvdata->base);
 }
@@ -232,6 +245,17 @@ static void tpdm_disable_cmb(struct tpdm_drvdata *drvdata)
 	writel_relaxed(val, drvdata->base + TPDM_CMB_CR);
 }
 
+static void tpdm_disable_tc(struct tpdm_drvdata *drvdata)
+{
+	u32 val;
+
+	val = readl_relaxed(drvdata->base + TPDM_TC_CR);
+	val &= ~TPDM_TC_CR_ENA;
+
+	/* Set the enable bit of TC control register to 0 */
+	writel_relaxed(val, drvdata->base + TPDM_TC_CR);
+}
+
 /* TPDM disable operations */
 static void __tpdm_disable(struct tpdm_drvdata *drvdata)
 {
@@ -242,6 +266,8 @@ static void __tpdm_disable(struct tpdm_drvdata *drvdata)
 		tpdm_disable_dsb(drvdata);
 	if (drvdata->datasets & TPDM_PIDR0_DS_CMB)
 		tpdm_disable_cmb(drvdata);
+	if (drvdata->datasets & TPDM_PIDR0_DS_TC)
+		tpdm_disable_tc(drvdata);
 
 	CS_LOCK(drvdata->base);
 }

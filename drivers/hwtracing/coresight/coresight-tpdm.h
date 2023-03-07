@@ -37,6 +37,13 @@
 /*Patten register number*/
 #define TPDM_CMB_MAX_PATT		2
 
+/* TC Subunit Registers*/
+#define TPDM_TC_CR		(0x500)
+
+/* Enable bit for TC subunit */
+#define TPDM_TC_CR_ENA		BIT(0)
+
+
 /* DSB Subunit Registers */
 #define TPDM_DSB_CR		(0x780)
 #define TPDM_DSB_TIER		(0x784)
@@ -92,11 +99,13 @@
  * PERIPHIDR0[0] : Fix to 1 if ImplDef subunit present, else 0
  * PERIPHIDR0[1] : Fix to 1 if DSB subunit present, else 0
  * PERIPHIDR0[2] : Fix to 1 if CMB subunit present, else 0
+ * PERIPHIDR0[3] : Fix to 1 if TC subunit present, else 0
  */
 
 #define TPDM_PIDR0_DS_IMPDEF	BIT(0)
 #define TPDM_PIDR0_DS_DSB	BIT(1)
 #define TPDM_PIDR0_DS_CMB	BIT(2)
+#define TPDM_PIDR0_DS_TC	BIT(3)
 
 #define TPDM_DSB_MAX_LINES	256
 /* MAX number of EDCR registers */
