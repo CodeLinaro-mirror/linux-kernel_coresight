@@ -43,6 +43,7 @@
 /* Enable bit for TC subunit */
 #define TPDM_TC_CR_ENA		BIT(0)
 #define TPDM_TC_CR_RETRIEVAL_MODE	BIT(2)
+#define TPDM_TC_CR_CAPTURE	BIT(3)
 
 /* DSB Subunit Registers */
 #define TPDM_DSB_CR		(0x780)
@@ -170,9 +171,11 @@ struct cmb_dataset {
 /*
  * struct tc_dataset - specifics associated to tc dataset
  * @retrieval_mode： 	Data set retrieval mode selection. 1 is APB, 0 is ATB
+ * @capture_mode:		Set capture mode
  */
 struct tc_dataset {
 	enum tpdm_mode		retrieval_mode;
+	enum tpdm_mode		capture_mode;
 };
 
 /*

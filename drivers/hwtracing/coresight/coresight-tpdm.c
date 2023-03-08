@@ -201,6 +201,7 @@ static void tpdm_enable_tc(struct tpdm_drvdata *drvdata)
 		val = val | TPDM_TC_CR_RETRIEVAL_MODE;
 	else
 		val = val & ~TPDM_TC_CR_RETRIEVAL_MODE;
+
 	/* Set the enable bit of TC control register to 1 */
 	val |= TPDM_TC_CR_ENA;
 
@@ -1229,6 +1230,57 @@ static ssize_t tc_retrieval_mode_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(tc_retrieval_mode);
 
+static ssize_t tc_capture_mode_show(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			 drvdata->tc->capture_mode == TPDM_MODE_ATB ?
+			 "ATB" : "APB");
+}
+
+static ssize_t tc_capture_mode_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf,
+					  size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	char str[20] = "";
+	u32 val;
+
+	if (size >= 20)
+		return -EINVAL;
+	if (sscanf(buf, "%s", str) != 1)
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	/* APB access is only possible when the TC subunit is enabled. */
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	if (!strcmp(str, "ATB")) {
+		drvdata->tc->capture_mode = TPDM_MODE_ATB;
+	} else if (!strcmp(str, "APB") &&
+		   drvdata->tc->retrieval_mode == TPDM_MODE_APB) {
+		drvdata->tc->capture_mode = TPDM_MODE_APB;
+		CS_UNLOCK(drvdata->base);
+		val = readl_relaxed(drvdata->base + TPDM_TC_CR);
+		val = val | TPDM_TC_CR_CAPTURE;
+		writel_relaxed(val, drvdata->base + TPDM_TC_CR);
+		CS_LOCK(drvdata->base);
+	} else {
+		spin_unlock(&drvdata->spinlock);
+		return -EINVAL;
+	}
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_capture_mode);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1258,6 +1310,7 @@ static struct attribute *tpdm_cmb_attrs[] = {
 
 static struct attribute *tpdm_tc_attrs[] = {
 	&dev_attr_tc_retrieval_mode.attr,
+	&dev_attr_tc_capture_mode.attr,
 	NULL,
 };
 
