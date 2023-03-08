@@ -53,6 +53,22 @@ static umode_t tpdm_cmb_is_visible(struct kobject *kobj,
 	return 0;
 }
 
+static umode_t tpdm_tc_is_visible(struct kobject *kobj,
+							struct attribute *attr, int n)
+{
+	struct device *dev = kobj_to_dev(kobj);
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (drvdata) {
+		if (drvdata->datasets & TPDM_PIDR0_DS_TC)
+			return attr->mode;
+		else
+			return 0;
+	}
+
+	return 0;
+}
+
 static void tpdm_enable_dsb(struct tpdm_drvdata *drvdata)
 {
 	u32 val, mode, i;
@@ -177,6 +193,14 @@ static void tpdm_enable_tc(struct tpdm_drvdata *drvdata)
 	u32 val;
 
 	val = readl_relaxed(drvdata->base + TPDM_TC_CR);
+	/* 
+	 * APB retrieval is enabled via a setting of 1,
+	 * else data sets are transmitted over ATB
+	 */
+	if (drvdata->tc->retrieval_mode == TPDM_MODE_APB)
+		val = val | TPDM_TC_CR_RETRIEVAL_MODE;
+	else
+		val = val & ~TPDM_TC_CR_RETRIEVAL_MODE;
 	/* Set the enable bit of TC control register to 1 */
 	val |= TPDM_TC_CR_ENA;
 
@@ -323,6 +347,14 @@ static int tpdm_datasets_alloc(struct tpdm_drvdata *drvdata)
 		if (!drvdata->cmb)
 			return -ENOMEM;
 	}
+
+	if (drvdata->datasets & TPDM_PIDR0_DS_TC) {
+		drvdata->tc = devm_kzalloc(drvdata->dev, sizeof(*drvdata->tc),
+					    GFP_KERNEL);
+		if (!drvdata->tc)
+			return -ENOMEM;
+	}
+
 	return 0;
 }
 
@@ -332,6 +364,9 @@ static void tpdm_init_default_data(struct tpdm_drvdata *drvdata)
 		drvdata->dsb->trig_ts = true;
 		drvdata->dsb->trig_type = false;
 	}
+
+	if (drvdata->datasets & TPDM_PIDR0_DS_TC)
+		drvdata->tc->retrieval_mode = TPDM_MODE_ATB;
 }
 
 static ssize_t reset_store(struct device *dev,
@@ -1150,6 +1185,50 @@ static ssize_t cmb_trig_ts_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(cmb_trig_ts);
 
+static ssize_t tc_retrieval_mode_show(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			 drvdata->tc->retrieval_mode == TPDM_MODE_ATB ?
+			 "ATB" : "APB");
+}
+
+static ssize_t tc_retrieval_mode_store(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf,
+					    size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	char str[20] = "";
+
+	if (size >= 20)
+		return -EINVAL;
+	if (sscanf(buf, "%s", str) != 1)
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	if (drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	if (!strcmp(str, "ATB")) {
+		drvdata->tc->retrieval_mode = TPDM_MODE_ATB;
+	} else if (!strcmp(str, "APB")) {
+		drvdata->tc->retrieval_mode = TPDM_MODE_APB;
+	} else {
+		spin_unlock(&drvdata->spinlock);
+		return -EINVAL;
+	}
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_retrieval_mode);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1177,6 +1256,11 @@ static struct attribute *tpdm_cmb_attrs[] = {
 	NULL,
 };
 
+static struct attribute *tpdm_tc_attrs[] = {
+	&dev_attr_tc_retrieval_mode.attr,
+	NULL,
+};
+
 static struct attribute_group tpdm_dsb_attr_grp = {
 	.attrs = tpdm_dsb_attrs,
 	.is_visible = tpdm_dsb_is_visible,
@@ -1187,10 +1271,16 @@ static struct attribute_group tpdm_cmb_attr_grp = {
 	.is_visible = tpdm_cmb_is_visible,
 };
 
+static struct attribute_group tpdm_tc_attr_grp = {
+	.attrs = tpdm_tc_attrs,
+	.is_visible = tpdm_tc_is_visible,
+};
+
 static const struct attribute_group *tpdm_attr_grps[] = {
 	&tpdm_attr_grp,
 	&tpdm_dsb_attr_grp,
 	&tpdm_cmb_attr_grp,
+	&tpdm_tc_attr_grp,
 	NULL,
 };
 

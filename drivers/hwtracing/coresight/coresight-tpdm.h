@@ -42,7 +42,7 @@
 
 /* Enable bit for TC subunit */
 #define TPDM_TC_CR_ENA		BIT(0)
-
+#define TPDM_TC_CR_RETRIEVAL_MODE	BIT(2)
 
 /* DSB Subunit Registers */
 #define TPDM_DSB_CR		(0x780)
@@ -90,6 +90,11 @@
  * integration test.
  */
 #define INTEGRATION_TEST_CYCLE	10
+
+enum tpdm_mode {
+	TPDM_MODE_ATB,
+	TPDM_MODE_APB,
+};
 
 /**
  * The bits of PERIPHIDR0 register.
@@ -163,6 +168,14 @@ struct cmb_dataset {
 };
 
 /*
+ * struct tc_dataset - specifics associated to tc dataset
+ * @retrieval_mode： 	Data set retrieval mode selection. 1 is APB, 0 is ATB
+ */
+struct tc_dataset {
+	enum tpdm_mode		retrieval_mode;
+};
+
+/*
  * struct tpdm_drvdata - specifics associated to an TPDM component
  * @base:       memory mapped base address for this component.
  * @dev:        The device entity associated to this component.
@@ -181,6 +194,7 @@ struct tpdm_drvdata {
 	unsigned long		datasets;
 	struct dsb_dataset	*dsb;
 	struct cmb_dataset	*cmb;
+	struct tc_dataset	*tc;
 };
 
 #endif  /* _CORESIGHT_CORESIGHT_TPDM_H */
