@@ -202,6 +202,17 @@ static void tpdm_enable_tc(struct tpdm_drvdata *drvdata)
 	else
 		val = val & ~TPDM_TC_CR_RETRIEVAL_MODE;
 
+	/*
+	 * A setting of 0 indicates all supported tenure GP(general pupose)
+	 * counters and TAT(Total Accumulated Tenure) metric logic are
+	 * configured to saturate. A setting of 1 indicates all supported
+	 * tenure GP counters and TAT metric logic are configured to rollover.
+	 */
+	if (drvdata->tc->sat_mode)
+		val = val | TPDM_TC_CR_SO;
+	else
+		val = val & ~TPDM_TC_CR_SO;
+
 	/* Set the enable bit of TC control register to 1 */
 	val |= TPDM_TC_CR_ENA;
 
@@ -1281,6 +1292,40 @@ static ssize_t tc_capture_mode_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(tc_capture_mode);
 
+static ssize_t tc_sat_mode_show(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (!test_bit(TPDM_DS_TC, drvdata->datasets))
+		return -EPERM;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n",
+			 (unsigned int)drvdata->tc->sat_mode);
+}
+
+static ssize_t tc_sat_mode_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf,
+				      size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	if (val)
+		drvdata->tc->sat_mode = true;
+	else
+		drvdata->tc->sat_mode = false;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_sat_mode);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1311,6 +1356,7 @@ static struct attribute *tpdm_cmb_attrs[] = {
 static struct attribute *tpdm_tc_attrs[] = {
 	&dev_attr_tc_retrieval_mode.attr,
 	&dev_attr_tc_capture_mode.attr,
+	&dev_attr_tc_sat_mode.attr,
 	NULL,
 };
 
