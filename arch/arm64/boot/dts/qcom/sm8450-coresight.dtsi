@@ -57,6 +57,25 @@
 		};
 	};
 
+	tpdm_pimem: tpdm@10850000 {
+		compatible = "qcom,coresight-tpdm", "arm,primecell";
+		reg = <0 0x10850000 0 0x1000>;
+
+		coresight-name = "coresight-tpdm-pimem";
+
+		clocks = <&aoss_qmp>;
+		clock-names = "apb_pclk";
+
+		out-ports {
+			port {
+				tpdm_pimem_out_tpda_dl_center_25: endpoint {
+					remote-endpoint =
+					<&tpda_dl_center_25_in_tpdm_pimem>;
+				};
+			};
+		};
+	};
+
 	tpda_dl_center: tpda@10c2e000 {
 		compatible = "qcom,coresight-tpda", "arm,primecell";
 
@@ -75,6 +94,14 @@
 
 			#address-cells = <1>;
 			#size-cells = <0>;
+
+			port@19 {
+				reg = <25>;
+				tpda_dl_center_25_in_tpdm_pimem: endpoint {
+					remote-endpoint =
+					<&tpdm_pimem_out_tpda_dl_center_25>;
+				};
+			};
 
 			port@1a {
 				reg = <26>;
