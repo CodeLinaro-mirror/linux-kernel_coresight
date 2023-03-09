@@ -1865,6 +1865,54 @@ static ssize_t tc_count_val_hi_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(tc_count_val_hi);
 
+static ssize_t tc_shadow_val_lo_show(struct device *dev,
+					  struct device_attribute *attr,
+					  char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	ssize_t size = 0;
+	int i = 0;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	for (i = 0; i < TPDM_TC_MAX_COUNTERS; i++) {
+		size += scnprintf(buf + size, PAGE_SIZE - size,
+				  "Index: 0x%x Value: 0x%x\n", i,
+				  readl_relaxed(drvdata->base + TPDM_TC_SHADOW_LO(i)));
+	}
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RO(tc_shadow_val_lo);
+
+static ssize_t tc_shadow_val_hi_show(struct device *dev,
+					  struct device_attribute *attr,
+					  char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	ssize_t size = 0;
+	int i = 0;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	for (i = 0; i < TPDM_TC_MAX_COUNTERS; i++) {
+		size += scnprintf(buf + size, PAGE_SIZE - size,
+				  "Index: 0x%x Value: 0x%x\n", i,
+				  readl_relaxed(drvdata->base + TPDM_TC_SHADOW_HI(i)));
+	}
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RO(tc_shadow_val_hi);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1908,6 +1956,8 @@ static struct attribute *tpdm_tc_attrs[] = {
 	&dev_attr_tc_counter_sel.attr,
 	&dev_attr_tc_count_val_lo.attr,
 	&dev_attr_tc_count_val_hi.attr,
+	&dev_attr_tc_shadow_val_lo.attr,
+	&dev_attr_tc_shadow_val_hi.attr,
 	NULL,
 };
 

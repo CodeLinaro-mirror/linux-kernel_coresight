@@ -61,6 +61,8 @@
 #define TPDM_TC_SELR		(0x588)
 #define TPDM_TC_CNTR_LO		(0x58C)
 #define TPDM_TC_CNTR_HI		(0x590)
+#define TPDM_TC_SHADOW_LO(n)	(0x594 + (n * 4))
+#define TPDM_TC_SHADOW_HI(n)	(0x644 + (n * 4))
 
 /* Enable bit for TC subunit */
 #define TPDM_TC_CR_ENA		BIT(0)
@@ -69,6 +71,7 @@
 #define TPDM_TC_CR_SO		BIT(4)
 
 #define TPDM_TC_MAX_TRIG	8
+#define TPDM_TC_MAX_COUNTERS	44
 
 enum tpdm_support_type {
 	TPDM_SUPPORT_TYPE_FULL,
