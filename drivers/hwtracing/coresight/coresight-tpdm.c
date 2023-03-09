@@ -1624,6 +1624,51 @@ static ssize_t tc_trig_val_hi_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(tc_trig_val_hi);
 
+static ssize_t tc_ovsr_gp_show(struct device *dev,
+				    struct device_attribute *attr,
+				    char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	val = readl_relaxed(drvdata->base + TPDM_TC_OVSR_GP);
+	spin_unlock(&drvdata->spinlock);
+	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
+}
+
+static ssize_t tc_ovsr_gp_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf,
+				     size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	if (val) {
+		CS_UNLOCK(drvdata->base);
+		writel_relaxed(val, drvdata->base + TPDM_TC_OVSR_GP);
+		CS_LOCK(drvdata);
+	}
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_ovsr_gp);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1662,6 +1707,7 @@ static struct attribute *tpdm_tc_attrs[] = {
 	&dev_attr_tc_trig_sel.attr,
 	&dev_attr_tc_trig_val_lo.attr,
 	&dev_attr_tc_trig_val_hi.attr,
+	&dev_attr_tc_ovsr_gp.attr,
 	NULL,
 };
 

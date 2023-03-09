@@ -53,6 +53,8 @@
 #define TPDM_TC_TRIG_LO(n)	(0x534 + (n * 4))
 /* TC subunit trigger configuration HI registers */
 #define TPDM_TC_TRIG_HI(n)	(0x554 + (n * 4))
+/* TC subunit GP counters roll over and saturation status register */
+#define TPDM_TC_OVSR_GP		(0x580)
 
 /* Enable bit for TC subunit */
 #define TPDM_TC_CR_ENA		BIT(0)
