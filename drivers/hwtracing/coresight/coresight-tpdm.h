@@ -6,6 +6,8 @@
 #ifndef _CORESIGHT_CORESIGHT_TPDM_H
 #define _CORESIGHT_CORESIGHT_TPDM_H
 
+#define BVAL(val, n)            ((val & BIT(n)) >> n)
+
 /* The max number of the datasets that TPDM supports */
 #define TPDM_DATASETS       7
 
@@ -56,6 +58,9 @@
 /* TC subunit GP counters roll over and saturation status register */
 #define TPDM_TC_OVSR_GP		(0x580)
 #define TPDM_TC_OVSR_IMPL	(0x584)
+#define TPDM_TC_SELR		(0x588)
+#define TPDM_TC_CNTR_LO		(0x58C)
+#define TPDM_TC_CNTR_HI		(0x590)
 
 /* Enable bit for TC subunit */
 #define TPDM_TC_CR_ENA		BIT(0)

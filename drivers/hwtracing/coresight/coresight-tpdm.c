@@ -1714,6 +1714,157 @@ static ssize_t tc_ovsr_impl_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(tc_ovsr_impl);
 
+static ssize_t tc_counter_sel_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	val = readl_relaxed(drvdata->base + TPDM_TC_SELR);
+	spin_unlock(&drvdata->spinlock);
+	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
+}
+
+static ssize_t tc_counter_sel_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf,
+					 size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	CS_UNLOCK(drvdata->base);
+	writel_relaxed(val, drvdata->base + TPDM_TC_SELR);
+	CS_LOCK(drvdata->base);
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_counter_sel);
+
+static ssize_t tc_count_val_lo_show(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	val = readl_relaxed(drvdata->base + TPDM_TC_CNTR_LO);
+	spin_unlock(&drvdata->spinlock);
+	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
+}
+
+static ssize_t tc_count_val_lo_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf,
+					  size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val, select;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	if (val) {
+		CS_UNLOCK(drvdata->base);
+		select = readl_relaxed(drvdata->base + TPDM_TC_SELR);
+		select = (select >> 11) & 0x3;
+
+		/* Check if selected counter is disabled */
+		if (BVAL(readl_relaxed(drvdata->base + TPDM_TC_CNTENSET), select)) {
+			spin_unlock(&drvdata->spinlock);
+			return -EPERM;
+		}
+
+		writel_relaxed(val, drvdata->base + TPDM_TC_CNTR_LO);
+		CS_LOCK(drvdata->base);
+	}
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_count_val_lo);
+
+static ssize_t tc_count_val_hi_show(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	val = readl_relaxed(drvdata->base + TPDM_TC_CNTR_HI);
+	spin_unlock(&drvdata->spinlock);
+	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
+}
+
+static ssize_t tc_count_val_hi_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf,
+					  size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val, select;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	if (val) {
+		CS_UNLOCK(drvdata->base);
+		select = readl_relaxed(drvdata->base + TPDM_TC_SELR);
+		select = (select >> 11) & 0x3;
+
+		/* Check if selected counter is disabled */
+		if (BVAL(readl_relaxed(drvdata->base + TPDM_TC_CNTENSET), select)) {
+			spin_unlock(&drvdata->spinlock);
+			return -EPERM;
+		}
+
+		writel_relaxed(val, drvdata->base + TPDM_TC_CNTR_HI);
+		CS_LOCK(drvdata->base);
+	}
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_count_val_hi);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1754,6 +1905,9 @@ static struct attribute *tpdm_tc_attrs[] = {
 	&dev_attr_tc_trig_val_hi.attr,
 	&dev_attr_tc_ovsr_gp.attr,
 	&dev_attr_tc_ovsr_impl.attr,
+	&dev_attr_tc_counter_sel.attr,
+	&dev_attr_tc_count_val_lo.attr,
+	&dev_attr_tc_count_val_hi.attr,
 	NULL,
 };
 
