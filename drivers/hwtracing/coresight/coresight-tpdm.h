@@ -47,12 +47,26 @@
 #define TPDM_TC_INTENSET	(0x50C)
 /* TC subunit count interrupt enable clear register */
 #define TPDM_TC_INTENCLR	(0x510)
+/* TC subunit trigger source selection registers */
+#define TPDM_TC_TRIG_SEL(n)	(0x514 + (n * 4))
+/* TC subunit trigger configuration LO registers */
+#define TPDM_TC_TRIG_LO(n)	(0x534 + (n * 4))
+/* TC subunit trigger configuration HI registers */
+#define TPDM_TC_TRIG_HI(n)	(0x554 + (n * 4))
 
 /* Enable bit for TC subunit */
 #define TPDM_TC_CR_ENA		BIT(0)
 #define TPDM_TC_CR_RETRIEVAL_MODE	BIT(2)
 #define TPDM_TC_CR_CAPTURE	BIT(3)
 #define TPDM_TC_CR_SO		BIT(4)
+
+#define TPDM_TC_MAX_TRIG	8
+
+enum tpdm_support_type {
+	TPDM_SUPPORT_TYPE_FULL,
+	TPDM_SUPPORT_TYPE_PARTIAL,
+	TPDM_SUPPORT_TYPE_NO,
+};
 
 /* DSB Subunit Registers */
 #define TPDM_DSB_CR		(0x780)
@@ -96,6 +110,8 @@
 #define ATBCNTRL_VAL_64		0xC01F1409
 
 #define TPDM_DEVID_TC_COUNTERS	GENMASK(5, 4)
+/* Output level triggering implemented for TC */
+#define TPDM_DEVID_TC_LVL_TRIG	GENMASK(28, 27)
 
 /*
  * Number of cycles to write value when
@@ -192,12 +208,16 @@ struct cmb_dataset {
 struct tc_dataset {
 	enum tpdm_mode		retrieval_mode;
 	enum tpdm_mode		capture_mode;
+	enum tpdm_support_type	tc_trig_type;
 	bool			sat_mode;
 	u32			tc_counters_avail;
 	u32			enable_counters;
 	u32			clear_counters;
 	u32			enable_irq;
 	u32			clear_irq;
+	u32			trig_sel[TPDM_TC_MAX_TRIG];
+	u32			trig_val_lo[TPDM_TC_MAX_TRIG];
+	u32			trig_val_hi[TPDM_TC_MAX_TRIG];
 };
 
 /*
