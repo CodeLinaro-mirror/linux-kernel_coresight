@@ -55,6 +55,7 @@
 #define TPDM_TC_TRIG_HI(n)	(0x554 + (n * 4))
 /* TC subunit GP counters roll over and saturation status register */
 #define TPDM_TC_OVSR_GP		(0x580)
+#define TPDM_TC_OVSR_IMPL	(0x584)
 
 /* Enable bit for TC subunit */
 #define TPDM_TC_CR_ENA		BIT(0)
