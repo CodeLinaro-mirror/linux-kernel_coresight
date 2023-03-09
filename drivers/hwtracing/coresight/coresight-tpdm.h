@@ -37,12 +37,16 @@
 /*Patten register number*/
 #define TPDM_CMB_MAX_PATT		2
 
-/* TC Subunit Registers*/
+/* TC Subunit Registers */
 #define TPDM_TC_CR		(0x500)
 /* TC subunit count enable set register */
 #define TPDM_TC_CNTENSET	(0x504)
 /* TC subunit count enable clear register */
 #define TPDM_TC_CNTENCLR	(0x508)
+/* TC subunit count interrupt enable set register */
+#define TPDM_TC_INTENSET	(0x50C)
+/* TC subunit count interrupt enable clear register */
+#define TPDM_TC_INTENCLR	(0x510)
 
 /* Enable bit for TC subunit */
 #define TPDM_TC_CR_ENA		BIT(0)
@@ -180,6 +184,10 @@ struct cmb_dataset {
  * @retrieval_mode： Data set retrieval mode selection. 1 is APB, 0 is ATB
  * @capture_mode:	Set capture mode
  * @sat_mode:		Configure GP counters and TAT metric logic
+ * @enable_counters:	Counters to enable
+ * @clear_counters:		Counters to clear
+ * @enable_irq:		Tenure counters are enabled for IRQ generation.
+ * @clear_irq:		Tenure counters need to be cleared for IRQ generation.
  */
 struct tc_dataset {
 	enum tpdm_mode		retrieval_mode;
@@ -188,6 +196,8 @@ struct tc_dataset {
 	u32			tc_counters_avail;
 	u32			enable_counters;
 	u32			clear_counters;
+	u32			enable_irq;
+	u32			clear_irq;
 };
 
 /*

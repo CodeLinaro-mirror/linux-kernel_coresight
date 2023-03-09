@@ -207,6 +207,26 @@ static void tpdm_enable_tc(struct tpdm_drvdata *drvdata)
 		writel_relaxed(drvdata->tc->clear_counters,
 						drvdata->base + TPDM_TC_CNTENCLR);
 
+	/*
+	 * Configure count interrupt enable set/clear register.
+	 * bit 0 - 3 : A write of 1 to bit N enables/clears all general purpose
+	 * and TAT computation counters within tenure counter N to generate
+	 * an IRQ upon saturation or rollover.
+	 * bit 4: A write of 1 to this bit enables/clears all supported tenure
+	 * scratchpad counters to generate an IRQ upon saturation.
+	 *
+	 * A write of 0 to any bit is ignored.
+	 */
+	if (drvdata->tc->enable_irq) {
+		writel_relaxed(0xF,  drvdata->base + TPDM_TC_INTENCLR);
+		writel_relaxed(drvdata->tc->enable_irq,
+			    drvdata->base + TPDM_TC_INTENSET);
+	}
+
+	if (drvdata->tc->clear_irq)
+		writel_relaxed(drvdata->tc->clear_irq,
+			    drvdata->base + TPDM_TC_INTENCLR);
+
 	val = readl_relaxed(drvdata->base + TPDM_TC_CR);
 	/* 
 	 * APB retrieval is enabled via a setting of 1,
@@ -1408,6 +1428,62 @@ static ssize_t tc_clear_counters_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(tc_clear_counters);
 
+static ssize_t tc_enable_irq_show(struct device *dev,
+				       struct device_attribute *attr,
+				       char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%lx\n",
+			 (unsigned long)drvdata->tc->enable_irq);
+}
+
+static ssize_t tc_enable_irq_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf,
+					size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	drvdata->tc->enable_irq = val;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_enable_irq);
+
+static ssize_t tc_clear_irq_show(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%lx\n",
+			 (unsigned long)drvdata->tc->clear_irq);
+}
+
+static ssize_t tc_clear_irq_store(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf,
+				       size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	drvdata->tc->clear_irq = val;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_clear_irq);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1441,6 +1517,8 @@ static struct attribute *tpdm_tc_attrs[] = {
 	&dev_attr_tc_sat_mode.attr,
 	&dev_attr_tc_enable_counters.attr,
 	&dev_attr_tc_clear_counters.attr,
+	&dev_attr_tc_enable_irq.attr,
+	&dev_attr_tc_clear_irq.attr,
 	NULL,
 };
 
