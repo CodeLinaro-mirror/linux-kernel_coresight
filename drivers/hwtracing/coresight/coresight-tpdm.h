@@ -39,6 +39,10 @@
 
 /* TC Subunit Registers*/
 #define TPDM_TC_CR		(0x500)
+/* TC subunit count enable set register */
+#define TPDM_TC_CNTENSET	(0x504)
+/* TC subunit count enable clear register */
+#define TPDM_TC_CNTENCLR	(0x508)
 
 /* Enable bit for TC subunit */
 #define TPDM_TC_CR_ENA		BIT(0)
@@ -86,6 +90,8 @@
 /* Register value for integration test */
 #define ATBCNTRL_VAL_32		0xC00F1409
 #define ATBCNTRL_VAL_64		0xC01F1409
+
+#define TPDM_DEVID_TC_COUNTERS	GENMASK(5, 4)
 
 /*
  * Number of cycles to write value when
@@ -178,7 +184,10 @@ struct cmb_dataset {
 struct tc_dataset {
 	enum tpdm_mode		retrieval_mode;
 	enum tpdm_mode		capture_mode;
-	bool				sat_mode;
+	bool			sat_mode;
+	u32			tc_counters_avail;
+	u32			enable_counters;
+	u32			clear_counters;
 };
 
 /*

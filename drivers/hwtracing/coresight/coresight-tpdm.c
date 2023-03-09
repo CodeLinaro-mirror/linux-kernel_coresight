@@ -192,6 +192,21 @@ static void tpdm_enable_tc(struct tpdm_drvdata *drvdata)
 {
 	u32 val;
 
+	/*
+	 * Each bit of TPDM_TC_CNTENCLR and TPDM_TC_CNTENSET
+	 * corresponds to a supported tenure counter.
+	 * Unsupported counters ignore writes and read as zeros.
+	 */
+	if (drvdata->tc->enable_counters) {
+		writel_relaxed(0xF, drvdata->base + TPDM_TC_CNTENCLR);
+		writel_relaxed(drvdata->tc->enable_counters,
+						drvdata->base + TPDM_TC_CNTENSET);
+	}
+
+	if (drvdata->tc->clear_counters)
+		writel_relaxed(drvdata->tc->clear_counters,
+						drvdata->base + TPDM_TC_CNTENCLR);
+
 	val = readl_relaxed(drvdata->base + TPDM_TC_CR);
 	/* 
 	 * APB retrieval is enabled via a setting of 1,
@@ -372,13 +387,23 @@ static int tpdm_datasets_alloc(struct tpdm_drvdata *drvdata)
 
 static void tpdm_init_default_data(struct tpdm_drvdata *drvdata)
 {
+	u32 devid;
+
+	devid = readl_relaxed(drvdata->base + CORESIGHT_DEVID);
+
 	if (drvdata->datasets & TPDM_PIDR0_DS_DSB) {
 		drvdata->dsb->trig_ts = true;
 		drvdata->dsb->trig_type = false;
 	}
 
-	if (drvdata->datasets & TPDM_PIDR0_DS_TC)
+	if (drvdata->datasets & TPDM_PIDR0_DS_TC) {
 		drvdata->tc->retrieval_mode = TPDM_MODE_ATB;
+		/*
+		 * This field is set to a binary value that is number of
+		 * TC counters supported minus 1.
+		 */
+		drvdata->tc->tc_counters_avail = FIELD_GET(TPDM_DEVID_TC_COUNTERS, devid) + 1;
+	}
 }
 
 static ssize_t reset_store(struct device *dev,
@@ -1298,9 +1323,6 @@ static ssize_t tc_sat_mode_show(struct device *dev,
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (!test_bit(TPDM_DS_TC, drvdata->datasets))
-		return -EPERM;
-
 	return scnprintf(buf, PAGE_SIZE, "%u\n",
 			 (unsigned int)drvdata->tc->sat_mode);
 }
@@ -1325,6 +1347,66 @@ static ssize_t tc_sat_mode_store(struct device *dev,
 	return size;
 }
 static DEVICE_ATTR_RW(tc_sat_mode);
+
+static ssize_t tc_enable_counters_show(struct device *dev,
+					    struct device_attribute *attr,
+					    char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%lx\n",
+			 (unsigned long)drvdata->tc->enable_counters);
+}
+
+static ssize_t tc_enable_counters_store(struct device *dev,
+					     struct device_attribute *attr,
+					     const char *buf,
+					     size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+	if (val >> drvdata->tc->tc_counters_avail)
+		return -EPERM;
+
+	spin_lock(&drvdata->spinlock);
+	drvdata->tc->enable_counters = val;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_enable_counters);
+
+static ssize_t tc_clear_counters_show(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return scnprintf(buf, PAGE_SIZE, "%lx\n",
+			 (unsigned long)drvdata->tc->clear_counters);
+}
+
+static ssize_t tc_clear_counters_store(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf,
+					    size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+	if (val >> drvdata->tc->tc_counters_avail)
+		return -EPERM;
+
+	spin_lock(&drvdata->spinlock);
+	drvdata->tc->clear_counters = val;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(tc_clear_counters);
 
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
@@ -1357,6 +1439,8 @@ static struct attribute *tpdm_tc_attrs[] = {
 	&dev_attr_tc_retrieval_mode.attr,
 	&dev_attr_tc_capture_mode.attr,
 	&dev_attr_tc_sat_mode.attr,
+	&dev_attr_tc_enable_counters.attr,
+	&dev_attr_tc_clear_counters.attr,
 	NULL,
 };
 
