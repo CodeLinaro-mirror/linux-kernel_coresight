@@ -1958,6 +1958,35 @@ static ssize_t tc_sw_inc_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(tc_sw_inc);
 
+static ssize_t tc_reset_counters_store(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf,
+					    size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	if (!drvdata->enable) {
+		spin_unlock(&drvdata->spinlock);
+		return -EPERM;
+	}
+
+	if (val) {
+		CS_UNLOCK(drvdata->base);
+		val = readl_relaxed(drvdata->base + TPDM_TC_CR);
+		val = val | BIT(1);
+		writel_relaxed(val, drvdata->base + TPDM_TC_CR);
+		CS_LOCK(drvdata->base);
+	}
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_WO(tc_reset_counters);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1988,6 +2017,7 @@ static struct attribute *tpdm_cmb_attrs[] = {
 static struct attribute *tpdm_tc_attrs[] = {
 	&dev_attr_tc_retrieval_mode.attr,
 	&dev_attr_tc_capture_mode.attr,
+	&dev_attr_tc_reset_counters.attr,
 	&dev_attr_tc_sat_mode.attr,
 	&dev_attr_tc_enable_counters.attr,
 	&dev_attr_tc_clear_counters.attr,
