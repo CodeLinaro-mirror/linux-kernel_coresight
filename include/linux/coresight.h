@@ -173,7 +173,9 @@ struct coresight_desc {
  *		 on the remote device.
  * @remote_fwnode: remote component's fwnode handle.
  * @remote_dev:  a @coresight_device representation of the component
- *		 connected to @port.
+ *               connected to @port. Will be looked up using
+ *               @remote_fwnode once the remote's coresight_device has
+ *               been created.
  * @link: Representation of the connection as a sysfs link.
  */
 struct coresight_connection {
@@ -614,5 +616,8 @@ static inline void coresight_write64(struct coresight_device *csdev, u64 val, u3
 extern int coresight_get_cpu(struct device *dev);
 
 struct coresight_platform_data *coresight_get_platform_data(struct device *dev);
+int coresight_add_conn(struct device *dev,
+		       struct coresight_platform_data *pdata,
+		       const struct coresight_connection *conn);
 
 #endif		/* _LINUX_COREISGHT_H */

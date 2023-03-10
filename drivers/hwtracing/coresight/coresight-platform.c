@@ -27,14 +27,57 @@ static int coresight_alloc_conns(struct device *dev,
 				 struct coresight_platform_data *pdata)
 {
 	if (pdata->nr_outconns) {
-		pdata->out_conns = devm_kcalloc(dev, pdata->nr_outconns,
-					    sizeof(*pdata->out_conns), GFP_KERNEL);
+		pdata->out_conns = devm_krealloc_array(
+			dev, pdata->out_conns, pdata->nr_outconns,
+			sizeof(*pdata->out_conns), GFP_KERNEL | __GFP_ZERO);
 		if (!pdata->out_conns)
 			return -ENOMEM;
 	}
 
 	return 0;
 }
+
+/*
+ * Add a connection in the first free slot, or realloc
+ * if there is no space. @conn's contents is copied into the new slot.
+ *
+ * If the output port is already assigned on this device, return -EINVAL
+ */
+int coresight_add_conn(struct device *dev,
+		       struct coresight_platform_data *pdata,
+		       const struct coresight_connection *conn)
+{
+	int ret;
+	struct coresight_connection *free_conn = NULL;
+	struct coresight_connection *i;
+
+	/*
+	 * Search for a free slot, and while looking for one, warn
+	 * on any existing duplicate output port.
+	 */
+	for (i = pdata->out_conns; i < pdata->out_conns + pdata->nr_outconns;
+	     ++i) {
+		if (i->remote_fwnode && conn->port != -1 &&
+		    i->port == conn->port) {
+			dev_warn(dev, "Duplicate output port %d\n", i->port);
+			return -EINVAL;
+		}
+		if (!i->remote_fwnode && !free_conn)
+			free_conn = i;
+	}
+
+	if (!free_conn) {
+		pdata->nr_outconns++;
+		ret = coresight_alloc_conns(dev, pdata);
+		if (ret)
+			return ret;
+		free_conn = &pdata->out_conns[pdata->nr_outconns - 1];
+	}
+
+	*free_conn = *conn;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(coresight_add_conn);
 
 static struct device *
 coresight_find_device_by_fwnode(struct fwnode_handle *fwnode)
@@ -224,7 +267,7 @@ static int of_coresight_parse_endpoint(struct device *dev,
 	struct device_node *rep = NULL;
 	struct device *rdev = NULL;
 	struct fwnode_handle *rdev_fwnode;
-	struct coresight_connection *conn;
+	struct coresight_connection conn;
 
 	do {
 		/* Parse the local port details */
@@ -251,14 +294,7 @@ static int of_coresight_parse_endpoint(struct device *dev,
 			break;
 		}
 
-		conn = &pdata->out_conns[endpoint.port];
-		if (conn->remote_fwnode) {
-			dev_warn(dev, "Duplicate output port %d\n",
-				 endpoint.port);
-			ret = -EINVAL;
-			break;
-		}
-		conn->port = endpoint.port;
+		conn.port = endpoint.port;
 		/*
 		 * Hold the refcount to the target device. This could be
 		 * released via:
@@ -267,8 +303,14 @@ static int of_coresight_parse_endpoint(struct device *dev,
 		 * 2) While removing the target device via
 		 *    coresight_remove_match()
 		 */
-		conn->remote_fwnode = fwnode_handle_get(rdev_fwnode);
-		conn->remote_port = rendpoint.port;
+		conn.remote_fwnode = fwnode_handle_get(rdev_fwnode);
+		conn.remote_port = rendpoint.port;
+
+		ret = coresight_add_conn(dev, pdata, &conn);
+		if (ret) {
+			fwnode_handle_put(conn.remote_fwnode);
+			return ret;
+		}
 		/* Connection record updated */
 	} while (0);
 
@@ -741,13 +783,10 @@ static int acpi_coresight_parse_graph(struct acpi_device *adev,
 
 	/* Copy the connection information to the final location */
 	for (i = 0; conns + i < ptr; i++) {
-		int port = conns[i].port;
-
-		/* Duplicate output port */
-		WARN_ON(pdata->out_conns[port].remote_fwnode);
-		pdata->out_conns[port] = conns[i];
+		rc = coresight_add_conn(&adev->dev, pdata, &conns[i]);
+		if (rc)
+			return rc;
 	}
-
 	devm_kfree(&adev->dev, conns);
 	return 0;
 }
