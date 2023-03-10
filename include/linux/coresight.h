@@ -109,7 +109,7 @@ union coresight_dev_subtype {
 struct coresight_platform_data {
 	int nr_inport;
 	int nr_outport;
-	struct coresight_connection *conns;
+	struct coresight_connection *out_conns;
 };
 
 /**
