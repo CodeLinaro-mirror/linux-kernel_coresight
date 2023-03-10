@@ -20,8 +20,7 @@
 
 #include "coresight-priv.h"
 /*
- * coresight_alloc_conns: Allocate connections record for each output
- * port from the device.
+ * coresight_alloc_conns: Allocate connections record for each input/output device.
  */
 static int coresight_alloc_conns(struct device *dev,
 				 struct coresight_platform_data *pdata)
@@ -33,7 +32,14 @@ static int coresight_alloc_conns(struct device *dev,
 		if (!pdata->out_conns)
 			return -ENOMEM;
 	}
-
+	if (pdata->nr_inconns) {
+		pdata->in_conns = devm_krealloc_array(dev, pdata->in_conns,
+						      pdata->nr_inconns,
+						      sizeof(*pdata->in_conns),
+						      GFP_KERNEL | __GFP_ZERO);
+		if (!pdata->in_conns)
+			return -ENOMEM;
+	}
 	return 0;
 }
 
@@ -78,6 +84,45 @@ int coresight_add_conn(struct device *dev,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(coresight_add_conn);
+
+/*
+ * Add a connection in the first free slot, or realloc
+ * if there is no space.
+ *
+ * Do nothing if the connection already exists because inputs are
+ * fixed up multiple times.
+ */
+int coresight_add_in_conn(struct device *dev,
+			  struct coresight_platform_data *pdata,
+			  struct coresight_connection *conn)
+{
+	int ret;
+	struct coresight_connection *free_conn = NULL;
+	int i;
+
+	/* Search for a free slot or exit if a duplicate is found */
+	if (pdata->in_conns) {
+		for (i = 0; i < pdata->nr_inconns; ++i) {
+			if (!free_conn && !pdata->in_conns[i].remote_fwnode)
+				free_conn = &pdata->in_conns[i];
+			if (pdata->in_conns[i].remote_fwnode ==
+			    conn->remote_fwnode)
+				return 0;
+		}
+	}
+
+	if (!free_conn) {
+		pdata->nr_inconns++;
+		ret = coresight_alloc_conns(dev, pdata);
+		if (ret)
+			return ret;
+		free_conn = &pdata->in_conns[pdata->nr_inconns - 1];
+	}
+
+	*free_conn = *conn;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(coresight_add_in_conn);
 
 static struct device *
 coresight_find_device_by_fwnode(struct fwnode_handle *fwnode)
@@ -249,7 +294,7 @@ static int of_coresight_get_cpu(struct device *dev)
 
 /*
  * of_coresight_parse_endpoint : Parse the given output endpoint @ep
- * and fill the connection information in @conn
+ * and fill the connection information in @in_conn and @out_conn
  *
  * Parses the local port, remote device name and the remote port.
  *
@@ -333,13 +378,13 @@ static int of_get_coresight_platform_data(struct device *dev,
 	/* Get the number of input and output port for this component */
 	of_coresight_get_ports(node, &pdata->nr_inconns, &pdata->nr_outconns);
 
-	/* If there are no output connections, we are done */
-	if (!pdata->nr_outconns)
-		return 0;
-
 	ret = coresight_alloc_conns(dev, pdata);
 	if (ret)
 		return ret;
+
+	/* If there are no output connections, we are done */
+	if (!pdata->nr_outconns)
+		return 0;
 
 	parent = of_coresight_get_output_ports_node(node);
 	/*

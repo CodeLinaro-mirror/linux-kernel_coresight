@@ -59,6 +59,7 @@ const u32 coresight_barrier_pkt[4] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fff
 EXPORT_SYMBOL_GPL(coresight_barrier_pkt);
 
 static const struct cti_assoc_op *cti_assoc_ops;
+static int coresight_fixup_inputs(struct coresight_device *csdev);
 
 ssize_t coresight_simple_show_pair(struct device *_dev,
 			      struct device_attribute *attr, char *buf)
@@ -1369,6 +1370,35 @@ static int coresight_fixup_orphan_conns(struct coresight_device *csdev)
 			 csdev, coresight_orphan_match);
 }
 
+/*
+ * Device connections are discovered before one/both devices have been created,
+ * so inputs must be added later.
+ */
+static int coresight_fixup_inputs(struct coresight_device *csdev)
+{
+	int i, ret = 0;
+	struct coresight_connection *out_conn;
+	struct coresight_connection in_conn;
+
+	for (i = 0; i < csdev->pdata->nr_outconns; i++) {
+		out_conn = &csdev->pdata->out_conns[i];
+		if (!out_conn->remote_dev || !out_conn->remote_dev->pdata)
+			continue;
+
+		/* Reverse local/remote relationships for inputs */
+		in_conn.remote_dev = csdev;
+		in_conn.remote_port = out_conn->port;
+		in_conn.port = out_conn->remote_port;
+		in_conn.remote_fwnode = csdev->dev.fwnode;
+		ret = coresight_add_in_conn(out_conn->remote_dev->dev.parent,
+					    out_conn->remote_dev->pdata,
+					    &in_conn);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
 
 static int coresight_fixup_device_conns(struct coresight_device *csdev)
 {
@@ -1427,11 +1457,20 @@ static int coresight_remove_match(struct device *dev, void *data)
 			 */
 			fwnode_handle_put(conn->remote_fwnode);
 			conn->remote_fwnode = NULL;
+			conn->remote_dev = NULL;
 			/* No need to continue */
 			break;
 		}
 	}
-
+	for (i = 0; i < iterator->pdata->nr_inconns; i++) {
+		conn = &iterator->pdata->in_conns[i];
+		if (csdev == conn->remote_dev) {
+			conn->remote_fwnode = NULL;
+			conn->remote_dev = NULL;
+			/* No need to continue */
+			break;
+		}
+	}
 	/*
 	 * Returning '0' ensures that all known component on the
 	 * bus will be checked.
@@ -1552,21 +1591,28 @@ void coresight_release_platform_data(struct coresight_device *csdev,
 
 	for (i = 0; i < pdata->nr_outconns; i++) {
 		/* If we have made the links, remove them now */
-		if (csdev && conns[i].remote_dev)
+		if (csdev && conns[i].remote_dev) {
 			coresight_remove_links(csdev, &conns[i]);
+			conns[i].remote_dev = NULL;
+		}
+
 		/*
 		 * Drop the refcount and clear the handle as this device
 		 * is going away
 		 */
 		if (conns[i].remote_fwnode) {
 			fwnode_handle_put(conns[i].remote_fwnode);
-			pdata->out_conns[i].remote_fwnode = NULL;
+			conns[i].remote_fwnode = NULL;
 		}
 	}
+	for (i = 0; i < pdata->nr_inconns; i++) {
+		pdata->in_conns[i].remote_dev = NULL;
+		pdata->in_conns[i].remote_fwnode = NULL;
+	}
+
 	if (csdev)
 		coresight_remove_conns_sysfs_group(csdev);
 }
-
 struct coresight_device *coresight_register(struct coresight_desc *desc)
 {
 	int ret;
@@ -1659,6 +1705,8 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 	ret = coresight_create_conns_sysfs_group(csdev);
 	if (!ret)
 		ret = coresight_fixup_device_conns(csdev);
+	if (!ret)
+		ret = coresight_fixup_inputs(csdev);
 	if (!ret)
 		ret = coresight_fixup_orphan_conns(csdev);
 
