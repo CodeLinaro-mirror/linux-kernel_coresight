@@ -164,18 +164,23 @@ struct coresight_desc {
 
 /**
  * struct coresight_connection - representation of a single connection
- * @outport:	a connection's output port number.
- * @child_port:	remote component's port number @output is connected to.
- * @chid_fwnode: remote component's fwnode handle.
- * @child_dev:	a @coresight_device representation of the component
-		connected to @outport.
+ * @port:        this connection's local port number. For input
+ *		 connections this is the in-port. For outputs it's the
+ *		 out-port.
+ * @remote_port: remote component's port number @port is connected to.
+ *		 For input connections this is the out-port number on
+ *		 remote device. For output connections it's the in-port
+ *		 on the remote device.
+ * @remote_fwnode: remote component's fwnode handle.
+ * @remote_dev:  a @coresight_device representation of the component
+ *		 connected to @port.
  * @link: Representation of the connection as a sysfs link.
  */
 struct coresight_connection {
-	int outport;
-	int child_port;
-	struct fwnode_handle *child_fwnode;
-	struct coresight_device *child_dev;
+	int port;
+	int remote_port;
+	struct fwnode_handle *remote_fwnode;
+	struct coresight_device *remote_dev;
 	struct coresight_sysfs_link *link;
 };
 
