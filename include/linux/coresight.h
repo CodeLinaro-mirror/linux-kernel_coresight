@@ -372,7 +372,8 @@ struct coresight_ops_source {
  * @disable	: Disable the device
  */
 struct coresight_ops_helper {
-	int (*enable)(struct coresight_device *csdev, void *data);
+	int (*enable)(struct coresight_device *csdev, enum cs_mode mode,
+		      void *data);
 	int (*disable)(struct coresight_device *csdev, void *data);
 };
 

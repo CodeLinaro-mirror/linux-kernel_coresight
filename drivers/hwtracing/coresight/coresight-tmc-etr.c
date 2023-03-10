@@ -791,24 +791,6 @@ tmc_etr_get_catu_device(struct tmc_drvdata *drvdata)
 }
 EXPORT_SYMBOL_GPL(tmc_etr_get_catu_device);
 
-static inline int tmc_etr_enable_catu(struct tmc_drvdata *drvdata,
-				      struct etr_buf *etr_buf)
-{
-	struct coresight_device *catu = tmc_etr_get_catu_device(drvdata);
-
-	if (catu && helper_ops(catu)->enable)
-		return helper_ops(catu)->enable(catu, etr_buf);
-	return 0;
-}
-
-static inline void tmc_etr_disable_catu(struct tmc_drvdata *drvdata)
-{
-	struct coresight_device *catu = tmc_etr_get_catu_device(drvdata);
-
-	if (catu && helper_ops(catu)->disable)
-		helper_ops(catu)->disable(catu, drvdata->etr_buf);
-}
-
 static const struct etr_buf_operations *etr_buf_ops[] = {
 	[ETR_MODE_FLAT] = &etr_flat_buf_ops,
 	[ETR_MODE_ETR_SG] = &etr_sg_buf_ops,
@@ -1058,13 +1040,6 @@ static int tmc_etr_enable_hw(struct tmc_drvdata *drvdata,
 	if (WARN_ON(drvdata->etr_buf))
 		return -EBUSY;
 
-	/*
-	 * If this ETR is connected to a CATU, enable it before we turn
-	 * this on.
-	 */
-	rc = tmc_etr_enable_catu(drvdata, etr_buf);
-	if (rc)
-		return rc;
 	rc = coresight_claim_device(drvdata->csdev);
 	if (!rc) {
 		drvdata->etr_buf = etr_buf;
@@ -1072,7 +1047,6 @@ static int tmc_etr_enable_hw(struct tmc_drvdata *drvdata,
 		if (rc) {
 			drvdata->etr_buf = NULL;
 			coresight_disclaim_device(drvdata->csdev);
-			tmc_etr_disable_catu(drvdata);
 		}
 	}
 
@@ -1162,8 +1136,6 @@ static void __tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 {
 	__tmc_etr_disable_hw(drvdata);
-	/* Disable CATU device if this ETR is connected to one */
-	tmc_etr_disable_catu(drvdata);
 	coresight_disclaim_device(drvdata->csdev);
 	/* Reset the ETR buf used by hardware */
 	drvdata->etr_buf = NULL;

@@ -441,6 +441,34 @@ static int coresight_enable_source(struct coresight_device *csdev,
 	return 0;
 }
 
+static int coresight_enable_helper(struct coresight_device *csdev,
+				   enum cs_mode mode, void *sink_data)
+{
+	int ret;
+
+	if (!helper_ops(csdev)->enable)
+		return 0;
+	ret = helper_ops(csdev)->enable(csdev, mode, sink_data);
+	if (ret)
+		return ret;
+
+	csdev->enable = true;
+	return 0;
+}
+
+static void coresight_disable_helper(struct coresight_device *csdev)
+{
+	int ret;
+
+	if (!helper_ops(csdev)->disable)
+		return;
+
+	ret = helper_ops(csdev)->disable(csdev, NULL);
+	if (ret)
+		return;
+	csdev->enable = false;
+}
+
 /**
  *  coresight_disable_source - Drop the reference count by 1 and disable
  *  the device if there are no users left.
@@ -458,6 +486,18 @@ static bool coresight_disable_source(struct coresight_device *csdev)
 		csdev->enable = false;
 	}
 	return !csdev->enable;
+}
+
+static void coresight_disable_helpers(struct coresight_device *csdev)
+{
+	int i;
+	struct coresight_device *helper;
+
+	for (i = 0; i < csdev->pdata->nr_outconns; ++i) {
+		helper = csdev->pdata->out_conns[i].remote_dev;
+		if (helper && helper->type == CORESIGHT_DEV_TYPE_HELPER)
+			coresight_disable_helper(helper);
+	}
 }
 
 /*
@@ -509,6 +549,9 @@ static void coresight_disable_path_from(struct list_head *path,
 		default:
 			break;
 		}
+
+		/* Disable all helpers adjacent along the path last */
+		coresight_disable_helpers(csdev);
 	}
 }
 
@@ -518,9 +561,28 @@ void coresight_disable_path(struct list_head *path)
 }
 EXPORT_SYMBOL_GPL(coresight_disable_path);
 
-int coresight_enable_path(struct list_head *path, enum cs_mode mode, void *sink_data)
+static int coresight_enable_helpers(struct coresight_device *csdev,
+				    enum cs_mode mode, void *sink_data)
 {
+	int i, ret = 0;
+	struct coresight_device *helper;
 
+	for (i = 0; i < csdev->pdata->nr_outconns; ++i) {
+		helper = csdev->pdata->out_conns[i].remote_dev;
+		if (!helper || helper->type != CORESIGHT_DEV_TYPE_HELPER)
+			continue;
+
+		ret = coresight_enable_helper(helper, mode, sink_data);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+int coresight_enable_path(struct list_head *path, enum cs_mode mode,
+			  void *sink_data)
+{
 	int ret = 0;
 	u32 type;
 	struct coresight_node *nd;
@@ -530,6 +592,10 @@ int coresight_enable_path(struct list_head *path, enum cs_mode mode, void *sink_
 		csdev = nd->csdev;
 		type = csdev->type;
 
+		/* Enable all helpers adjacent to the path first */
+		ret = coresight_enable_helpers(csdev, mode, sink_data);
+		if (ret)
+			goto err;
 		/*
 		 * ETF devices are tricky... They can be a link or a sink,
 		 * depending on how they are configured.  If an ETF has been
