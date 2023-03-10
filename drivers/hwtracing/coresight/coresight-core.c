@@ -253,48 +253,6 @@ void coresight_disclaim_device(struct coresight_device *csdev)
 }
 EXPORT_SYMBOL_GPL(coresight_disclaim_device);
 
-/* enable or disable an associated CTI device of the supplied CS device */
-static int
-coresight_control_assoc_ectdev(struct coresight_device *csdev, bool enable)
-{
-	int ect_ret = 0;
-	struct coresight_device *ect_csdev = csdev->ect_dev;
-	struct module *mod;
-
-	if (!ect_csdev)
-		return 0;
-	if ((!ect_ops(ect_csdev)->enable) || (!ect_ops(ect_csdev)->disable))
-		return 0;
-
-	mod = ect_csdev->dev.parent->driver->owner;
-	if (enable) {
-		if (try_module_get(mod)) {
-			ect_ret = ect_ops(ect_csdev)->enable(ect_csdev);
-			if (ect_ret) {
-				module_put(mod);
-			} else {
-				get_device(ect_csdev->dev.parent);
-				csdev->ect_enabled = true;
-			}
-		} else
-			ect_ret = -ENODEV;
-	} else {
-		if (csdev->ect_enabled) {
-			ect_ret = ect_ops(ect_csdev)->disable(ect_csdev);
-			put_device(ect_csdev->dev.parent);
-			module_put(mod);
-			csdev->ect_enabled = false;
-		}
-	}
-
-	/* output warning if ECT enable is preventing trace operation */
-	if (ect_ret)
-		dev_info(&csdev->dev, "Associated ECT device (%s) %s failed\n",
-			 dev_name(&ect_csdev->dev),
-			 enable ? "enable" : "disable");
-	return ect_ret;
-}
-
 /*
  * Set the associated ect / cti device while holding the coresight_mutex
  * to avoid a race with coresight_enable that may try to use this value.
@@ -302,8 +260,14 @@ coresight_control_assoc_ectdev(struct coresight_device *csdev, bool enable)
 void coresight_set_assoc_ectdev_mutex(struct coresight_device *csdev,
 				      struct coresight_device *ect_csdev)
 {
+	struct coresight_connection conn = {};
+
 	mutex_lock(&coresight_mutex);
-	csdev->ect_dev = ect_csdev;
+	conn.remote_fwnode = fwnode_handle_get(dev_fwnode(&ect_csdev->dev));
+	conn.remote_dev = ect_csdev;
+	conn.remote_port = conn.port = -1;
+	coresight_add_conn(csdev->dev.parent, csdev->pdata, &conn);
+	coresight_fixup_inputs(csdev);
 	mutex_unlock(&coresight_mutex);
 }
 EXPORT_SYMBOL_GPL(coresight_set_assoc_ectdev_mutex);
@@ -320,12 +284,8 @@ static int coresight_enable_sink(struct coresight_device *csdev,
 	if (!sink_ops(csdev)->enable)
 		return -EINVAL;
 
-	ret = coresight_control_assoc_ectdev(csdev, true);
-	if (ret)
-		return ret;
 	ret = sink_ops(csdev)->enable(csdev, mode, data);
 	if (ret) {
-		coresight_control_assoc_ectdev(csdev, false);
 		return ret;
 	}
 	csdev->enable = true;
@@ -343,7 +303,6 @@ static void coresight_disable_sink(struct coresight_device *csdev)
 	ret = sink_ops(csdev)->disable(csdev);
 	if (ret)
 		return;
-	coresight_control_assoc_ectdev(csdev, false);
 	csdev->enable = false;
 }
 
@@ -368,16 +327,10 @@ static int coresight_enable_link(struct coresight_device *csdev,
 		return outport;
 
 	if (link_ops(csdev)->enable) {
-		ret = coresight_control_assoc_ectdev(csdev, true);
-		if (!ret) {
-			ret = link_ops(csdev)->enable(csdev, inport, outport);
-			if (ret)
-				coresight_control_assoc_ectdev(csdev, false);
-		}
+		ret = link_ops(csdev)->enable(csdev, inport, outport);
+		if (!ret)
+			csdev->enable = true;
 	}
-
-	if (!ret)
-		csdev->enable = true;
 
 	return ret;
 }
@@ -407,7 +360,6 @@ static void coresight_disable_link(struct coresight_device *csdev,
 
 	if (link_ops(csdev)->disable) {
 		link_ops(csdev)->disable(csdev, inport, outport);
-		coresight_control_assoc_ectdev(csdev, false);
 	}
 
 	for (i = 0; i < nr_conns; i++)
@@ -424,12 +376,8 @@ static int coresight_enable_source(struct coresight_device *csdev,
 
 	if (!csdev->enable) {
 		if (source_ops(csdev)->enable) {
-			ret = coresight_control_assoc_ectdev(csdev, true);
-			if (ret)
-				return ret;
 			ret = source_ops(csdev)->enable(csdev, NULL, mode);
 			if (ret) {
-				coresight_control_assoc_ectdev(csdev, false);
 				return ret;
 			}
 		}
@@ -482,7 +430,6 @@ static bool coresight_disable_source(struct coresight_device *csdev)
 	if (atomic_dec_return(csdev->refcnt) == 0) {
 		if (source_ops(csdev)->disable)
 			source_ops(csdev)->disable(csdev, NULL);
-		coresight_control_assoc_ectdev(csdev, false);
 		csdev->enable = false;
 	}
 	return !csdev->enable;

@@ -555,7 +555,10 @@ static void cti_add_assoc_to_csdev(struct coresight_device *csdev)
 	mutex_lock(&ect_mutex);
 
 	/* exit if current is an ECT device.*/
-	if ((csdev->type == CORESIGHT_DEV_TYPE_ECT) || list_empty(&ect_net))
+	if ((csdev->type == CORESIGHT_DEV_TYPE_HELPER &&
+	     csdev->subtype.helper_subtype ==
+		     CORESIGHT_DEV_SUBTYPE_HELPER_ECT_CTI) ||
+	    list_empty(&ect_net))
 		goto cti_add_done;
 
 	/* if we didn't find the csdev previously we used the fwnode name */
@@ -580,6 +583,22 @@ cti_add_done:
 	mutex_unlock(&ect_mutex);
 }
 
+static struct coresight_device *cti__get_cti_device(struct coresight_device *csdev)
+{
+	int i;
+	struct coresight_device *tmp;
+
+	for (i = 0; i < csdev->pdata->nr_outconns; i++) {
+		tmp = csdev->pdata->out_conns[i].remote_dev;
+
+		if (tmp && tmp->type == CORESIGHT_DEV_TYPE_HELPER &&
+		    tmp->subtype.helper_subtype ==
+			    CORESIGHT_DEV_SUBTYPE_HELPER_ECT_CTI)
+			return tmp;
+	}
+	return NULL;
+}
+
 /*
  * Removing the associated devices is easier.
  * A CTI will not have a value for csdev->ect_dev.
@@ -588,20 +607,21 @@ static void cti_remove_assoc_from_csdev(struct coresight_device *csdev)
 {
 	struct cti_drvdata *ctidrv;
 	struct cti_trig_con *tc;
+	struct coresight_device *cti_csdev = cti__get_cti_device(csdev);
 	struct cti_device *ctidev;
 
+	if (!cti_csdev)
+		return;
+
 	mutex_lock(&ect_mutex);
-	if (csdev->ect_dev) {
-		ctidrv = csdev_to_cti_drvdata(csdev->ect_dev);
-		ctidev = &ctidrv->ctidev;
-		list_for_each_entry(tc, &ctidev->trig_cons, node) {
-			if (tc->con_dev == csdev) {
-				cti_remove_sysfs_link(ctidrv, tc);
-				tc->con_dev = NULL;
-				break;
-			}
+	ctidrv = csdev_to_cti_drvdata(cti_csdev);
+	ctidev = &ctidrv->ctidev;
+	list_for_each_entry(tc, &ctidev->trig_cons, node) {
+		if (tc->con_dev == csdev) {
+			cti_remove_sysfs_link(ctidrv, tc);
+			tc->con_dev = NULL;
+			break;
 		}
-		csdev->ect_dev = NULL;
 	}
 	mutex_unlock(&ect_mutex);
 }
@@ -646,8 +666,6 @@ static void cti_remove_conn_xrefs(struct cti_drvdata *drvdata)
 
 	list_for_each_entry(tc, &ctidev->trig_cons, node) {
 		if (tc->con_dev) {
-			coresight_set_assoc_ectdev_mutex(tc->con_dev,
-							 NULL);
 			cti_remove_sysfs_link(drvdata, tc);
 			tc->con_dev = NULL;
 		}
@@ -795,27 +813,27 @@ static void cti_pm_release(struct cti_drvdata *drvdata)
 }
 
 /** cti ect operations **/
-int cti_enable(struct coresight_device *csdev)
+int cti_enable(struct coresight_device *csdev, enum cs_mode mode, void *data)
 {
 	struct cti_drvdata *drvdata = csdev_to_cti_drvdata(csdev);
 
 	return cti_enable_hw(drvdata);
 }
 
-int cti_disable(struct coresight_device *csdev)
+int cti_disable(struct coresight_device *csdev, void *data)
 {
 	struct cti_drvdata *drvdata = csdev_to_cti_drvdata(csdev);
 
 	return cti_disable_hw(drvdata);
 }
 
-static const struct coresight_ops_ect cti_ops_ect = {
+static const struct coresight_ops_helper cti_ops_ect = {
 	.enable = cti_enable,
 	.disable = cti_disable,
 };
 
 static const struct coresight_ops cti_ops = {
-	.ect_ops = &cti_ops_ect,
+	.helper_ops = &cti_ops_ect,
 };
 
 /*
@@ -922,8 +940,8 @@ static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 
 	/* set up coresight component description */
 	cti_desc.pdata = pdata;
-	cti_desc.type = CORESIGHT_DEV_TYPE_ECT;
-	cti_desc.subtype.ect_subtype = CORESIGHT_DEV_SUBTYPE_ECT_CTI;
+	cti_desc.type = CORESIGHT_DEV_TYPE_HELPER;
+	cti_desc.subtype.helper_subtype = CORESIGHT_DEV_SUBTYPE_HELPER_ECT_CTI;
 	cti_desc.ops = &cti_ops;
 	cti_desc.groups = drvdata->ctidev.con_groups;
 	cti_desc.dev = dev;
