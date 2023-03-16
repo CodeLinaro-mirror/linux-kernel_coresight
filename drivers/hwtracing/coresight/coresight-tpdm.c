@@ -4,6 +4,7 @@
  */
 
 #include <linux/amba/bus.h>
+#include <linux/bitfield.h>
 #include <linux/bitmap.h>
 #include <linux/coresight.h>
 #include <linux/coresight-pmu.h>
@@ -50,6 +51,32 @@ static int tpdm_init_datasets(struct tpdm_drvdata *drvdata)
 	return 0;
 }
 
+static void set_dsb_cycacc_mode(struct tpdm_drvdata *drvdata, u32 *val)
+{
+	u32 mode;
+
+	mode = TPDM_DSB_MODE_CYCACC(drvdata->dsb->mode);
+	*val &= ~TPDM_DSB_TEST_MODE;
+	*val |= FIELD_PREP(TPDM_DSB_TEST_MODE, mode);
+}
+
+static void set_dsb_hpsel_mode(struct tpdm_drvdata *drvdata, u32 *val)
+{
+	u32 mode;
+
+	mode = TPDM_DSB_MODE_HPBYTESEL(drvdata->dsb->mode);
+	*val &= ~TPDM_DSB_HPSEL;
+	*val |= FIELD_PREP(TPDM_DSB_HPSEL, mode);
+}
+
+static void set_dsb_perf_mode(struct tpdm_drvdata *drvdata, u32 *val)
+{
+	if (drvdata->dsb->mode & TPDM_DSB_MODE_PERF)
+		*val |= TPDM_DSB_CR_MODE;
+	else
+		*val &= ~TPDM_DSB_CR_MODE;
+}
+
 static void set_trigger_type(struct tpdm_drvdata *drvdata, u32 *val)
 {
 	if (drvdata->dsb->trig_type)
@@ -71,6 +98,12 @@ static void tpdm_enable_dsb(struct tpdm_drvdata *drvdata)
 	writel_relaxed(val, drvdata->base + TPDM_DSB_TIER);
 
 	val = readl_relaxed(drvdata->base + TPDM_DSB_CR);
+	/* Set the cycle accurate mode */
+	set_dsb_cycacc_mode(drvdata, &val);
+	/* Set the byte lane for high-performance mode */
+	set_dsb_hpsel_mode(drvdata, &val);
+	/* Set the performance mode */
+	set_dsb_perf_mode(drvdata, &val);
 	/* Set trigger type */
 	set_trigger_type(drvdata, &val);
 	/* Set the enable bit of DSB control register to 1 */
@@ -223,6 +256,34 @@ static struct attribute_group tpdm_attr_grp = {
 	.attrs = tpdm_attrs,
 };
 
+static ssize_t dsb_mode_show(struct device *dev,
+				  struct device_attribute *attr,
+				  char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return sysfs_emit(buf, "%lx\n",
+			 (unsigned long)drvdata->dsb->mode);
+}
+
+static ssize_t dsb_mode_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf,
+				   size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if ((kstrtoul(buf, 0, &val)) || val < 0)
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	drvdata->dsb->mode = val & TPDM_MODE_ALL;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(dsb_mode);
+
 static ssize_t dsb_trig_type_show(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
@@ -294,6 +355,7 @@ static ssize_t dsb_trig_ts_store(struct device *dev,
 static DEVICE_ATTR_RW(dsb_trig_ts);
 
 static struct attribute *tpdm_dsb_attrs[] = {
+	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_trig_ts.attr,
 	&dev_attr_dsb_trig_type.attr,
 	NULL,
