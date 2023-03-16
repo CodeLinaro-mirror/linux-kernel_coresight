@@ -95,3 +95,51 @@ Description:
 		Accepts the following two values.
 		value 1: Index number of XPMR register
 		value 2: The value need to be written
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/dsb_patt_val
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>, Tao Zhang (QUIC) <quic_taozha@quicinc.com>
+Description:
+		(Write) Set the pattern value of DSB tpdm. Read
+		the pattern value of DSB tpdm.
+
+		Accepts the following two values.
+		value 1: Index number of TPR register
+		value 2: The value need to be written
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/dsb_patt_mask
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>, Tao Zhang (QUIC) <quic_taozha@quicinc.com>
+Description:
+		(Write) Set the pattern mask of DSB tpdm. Read
+		the pattern mask of DSB tpdm.
+
+		Accepts the following two values.
+		value 1: Index number of TPMR register
+		value 2: The value need to be written
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/dsb_patt_ts
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>, Tao Zhang (QUIC) <quic_taozha@quicinc.com>
+Description:
+		(Write) Set the pattern timestamp of DSB tpdm. Read
+		the pattern timestamp of DSB tpdm.
+
+		Accepts only one of the 2 values -  0 or 1.
+		0 : Set the DSB pattern timestamp to false
+		1 : Set the DSB pattern timestamp to true
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/dsb_patt_type
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>, Tao Zhang (QUIC) <quic_taozha@quicinc.com>
+Description:
+		(Write) Set the pattern type of DSB tpdm. Read
+		the pattern type of DSB tpdm.
+
+		Accepts only one of the 2 values -  0 or 1.
+		0 : Set the DSB pattern type to false
+		1 : Set the DSB pattern type to true
