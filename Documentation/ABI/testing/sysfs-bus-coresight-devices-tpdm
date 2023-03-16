@@ -45,3 +45,29 @@ Description:
 		tpdm.
 
 		Accepts the value needs to be greater than 0.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/dsb_edge_ctrl
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>, Tao Zhang (QUIC) <quic_taozha@quicinc.com>
+Description:
+		(Write) Set the edge control of DSB tpdm. Read the
+		edge control of DSB tpdm.
+
+		Accepts the following three values.
+		value 1: Start EDCR register number
+		value 2: End EDCR register number
+		value 3: The value need to be written
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/dsb_edge_ctrl_mask
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>, Tao Zhang (QUIC) <quic_taozha@quicinc.com>
+Description:
+		(Write) Set the edge control mask of DSB tpdm. Read
+		the edge control mask of DSB tpdm.
+
+		Accepts the following three values.
+		value 1: Start EDCMR register number
+		value 2: End EDCMR register number
+		value 3: The value need to be written
