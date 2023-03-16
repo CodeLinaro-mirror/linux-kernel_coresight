@@ -21,6 +21,39 @@
 
 DEFINE_CORESIGHT_DEVLIST(tpda_devs, "tpda");
 
+/* Search and read element data size from the TPDM node in devicetree*/
+static int tpda_set_element_size(struct tpda_drvdata *drvdata,
+			   struct coresight_device *csdev, int inport)
+{
+	static int nr_inport;
+	int i;
+	struct coresight_device *in_csdev;
+
+	if (inport > (TPDA_MAX_INPORTS - 1))
+		return -EINVAL;
+
+	for (i = 0; i < csdev->pdata->nr_inconns; i++) {
+		in_csdev = csdev->pdata->in_conns[i].remote_dev;
+		if (!in_csdev)
+			break;
+		if (inport != 0) {
+			nr_inport = inport;
+			if (csdev->pdata->in_conns[i].port != inport)
+				continue;
+		}
+		if (in_csdev && strstr(dev_name(&in_csdev->dev), "tpdm")) {
+			if (!of_property_read_u32(in_csdev->dev.parent->of_node,
+					"qcom,dsb-elemenet-size", &drvdata->dsb_esize[nr_inport]))
+				break;
+			dev_err(drvdata->dev, "Fail to get data set element size\n");
+			return -EINVAL;
+		}
+		tpda_set_element_size(drvdata, in_csdev, 0);
+	}
+
+	return 0;
+}
+
 /* Settings pre enabling port control register */
 static void tpda_enable_pre_port(struct tpda_drvdata *drvdata)
 {
@@ -37,6 +70,18 @@ static void tpda_enable_port(struct tpda_drvdata *drvdata, int port)
 	u32 val;
 
 	val = readl_relaxed(drvdata->base + TPDA_Pn_CR(port));
+	/*
+	 * Configure aggregator port n DSB data set element size
+	 * Set the bit to 0 if the size is 32
+	 * Set the bit to 1 if the size is 64
+	 */
+	if (drvdata->dsb_esize[port] == 32)
+		val &= ~TPDA_Pn_CR_DSBSIZE;
+	else if (drvdata->dsb_esize[port] == 64)
+		val |= TPDA_Pn_CR_DSBSIZE;
+	else
+		dev_err(drvdata->dev,
+			"DSB data size input from port[%d] is invalid\n", port);
 	/* Enable the port */
 	val |= TPDA_Pn_CR_ENA;
 	writel_relaxed(val, drvdata->base + TPDA_Pn_CR(port));
@@ -57,6 +102,11 @@ static void __tpda_enable(struct tpda_drvdata *drvdata, int port)
 static int tpda_enable(struct coresight_device *csdev, int inport, int outport)
 {
 	struct tpda_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	int ret;
+
+	ret = tpda_set_element_size(drvdata, csdev, inport);
+	if (ret)
+		return ret;
 
 	spin_lock(&drvdata->spinlock);
 	if (atomic_read(&csdev->refcnt[inport]) == 0)
