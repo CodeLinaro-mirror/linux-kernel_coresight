@@ -163,3 +163,28 @@ Contact:	Jinlong Mao <quic_jinlmao@quicinc.com>
 Description:	(RW) Read or write CMB data collection mode. Only value 0 and 1 can be written to this node.
 		Set to 0 is for continuous CMB collection mode. Set to 1 is for  trace-on-change CMB
 		collection mode.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_patt_mask
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write CMB timestamp pattern mask.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_patt_val
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write CMB interface timestamp request pattern match control.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_trig_patt_mask
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write the value of CMB subunit trigger pattern mask.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/cmb_trig_patt_val
+Date:		March 2023
+KernelVersion	6.3
+Contact:	Jinlong Mao <quic_jinlmao@quicinc.com>
+Description:	(RW) Read or write the value of CMB subunit trigger pattern match.
+
