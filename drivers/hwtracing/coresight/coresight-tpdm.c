@@ -46,6 +46,8 @@ static int tpdm_init_datasets(struct tpdm_drvdata *drvdata)
 			memset(drvdata->dsb, 0, sizeof(struct dsb_dataset));
 		drvdata->dsb->trig_ts = true;
 		drvdata->dsb->trig_type = false;
+		of_property_read_u32(drvdata->dev->of_node, "qcom,dsb_msr_num",
+			   &drvdata->dsb->msr_num);
 	}
 
 	return 0;
@@ -127,6 +129,11 @@ static void tpdm_enable_dsb(struct tpdm_drvdata *drvdata)
 	else
 		val &= ~TPDM_DSB_TIER_XTRIG_TSENAB;
 	writel_relaxed(val, drvdata->base + TPDM_DSB_TIER);
+
+	if (drvdata->dsb->msr_num != 0)
+		for (i = 0; i < drvdata->dsb->msr_num; i++)
+			writel_relaxed(drvdata->dsb->msr[i],
+				drvdata->base + TPDM_DSB_MSR(i));
 
 	val = readl_relaxed(drvdata->base + TPDM_DSB_CR);
 	/* Set the cycle accurate mode */
@@ -742,6 +749,50 @@ static ssize_t dsb_trig_ts_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(dsb_trig_ts);
 
+static ssize_t dsb_msr_show(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned int i;
+	ssize_t size = 0;
+
+	if (drvdata->dsb->msr_num == 0)
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	for (i = 0; i < TPDM_DSB_MAX_PATT; i++) {
+		size += sysfs_emit_at(buf, size,
+				  "%u 0x%x\n", i, drvdata->dsb->msr[i]);
+	}
+	spin_unlock(&drvdata->spinlock);
+
+	return size;
+}
+
+static ssize_t dsb_msr_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf,
+				  size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned int num, val;
+	int nval;
+
+	if (drvdata->dsb->msr_num == 0)
+		return -EINVAL;
+
+	nval = sscanf(buf, "%u %x", &num, &val);
+	if ((nval != 2) || (num >= (drvdata->dsb->msr_num - 1)))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	drvdata->dsb->msr[num] = val;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(dsb_msr);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -754,6 +805,7 @@ static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_trig_patt_mask.attr,
 	&dev_attr_dsb_trig_ts.attr,
 	&dev_attr_dsb_trig_type.attr,
+	&dev_attr_dsb_msr.attr,
 	NULL,
 };
 
