@@ -1396,7 +1396,7 @@ static int coresight_fixup_inputs(struct coresight_device *csdev)
 	for (i = 0; i < csdev->pdata->nr_outconns; i++) {
 		out_conn = &csdev->pdata->out_conns[i];
 		if (!out_conn->remote_dev || !out_conn->remote_dev->pdata)
-			continue;
+			return -EPROBE_DEFER;
 
 		/* Reverse local/remote relationships for inputs */
 		in_conn.remote_dev = csdev;
