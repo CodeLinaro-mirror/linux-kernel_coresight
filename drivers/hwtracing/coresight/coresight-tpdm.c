@@ -34,6 +34,21 @@ static umode_t tpdm_dsb_is_visible(struct kobject *kobj,
 	return 0;
 }
 
+static umode_t tpdm_cmb_is_visible(struct kobject *kobj,
+							struct attribute *attr, int n)
+{
+	struct device *dev = kobj_to_dev(kobj);
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (drvdata) {
+		if (drvdata->datasets & TPDM_PIDR0_DS_CMB)
+			return attr->mode;
+	}
+
+	return 0;
+}
+
+
 static int tpdm_init_datasets(struct tpdm_drvdata *drvdata)
 {
 	if (drvdata->datasets & TPDM_PIDR0_DS_DSB) {
@@ -48,6 +63,15 @@ static int tpdm_init_datasets(struct tpdm_drvdata *drvdata)
 		drvdata->dsb->trig_type = false;
 		of_property_read_u32(drvdata->dev->of_node, "qcom,dsb_msr_num",
 			   &drvdata->dsb->msr_num);
+	}
+
+	if (drvdata->datasets & TPDM_PIDR0_DS_CMB) {
+		if (!drvdata->cmb) {
+			drvdata->cmb = devm_kzalloc(drvdata->dev,
+						sizeof(*drvdata->cmb), GFP_KERNEL);
+			if (!drvdata->cmb)
+				return -ENOMEM;
+		}
 	}
 
 	return 0;
@@ -154,9 +178,18 @@ static void tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
 	u32 val;
 
 	val = readl_relaxed(drvdata->base + TPDM_CMB_CR);
-	val |= TPDM_CMB_CR_ENA;
+	/*
+	 * Set to 0 for continuous CMB collection mode,
+	 * 1 for trace-on-change CMB collection mode.
+	 */
+	if (drvdata->cmb->trace_mode)
+		val |= TPDM_CMB_CR_MODE;
+	else
+		val &= ~TPDM_CMB_CR_MODE;
 
 	/* Set the enable bit of CMB control register to 1 */
+	val |= TPDM_CMB_CR_ENA;
+
 	writel_relaxed(val, drvdata->base + TPDM_CMB_CR);
 }
 
@@ -819,6 +852,37 @@ static ssize_t dsb_msr_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(dsb_msr);
 
+static ssize_t cmb_mode_show(struct device *dev,
+				  struct device_attribute *attr,
+				  char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	return sysfs_emit(buf, "%x\n",
+			 drvdata->cmb->trace_mode);
+
+}
+
+static ssize_t cmb_mode_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf,
+				   size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long trace_mode;
+	int ret;
+
+	ret = kstrtoul(buf, 16, &trace_mode);
+	if (ret || (trace_mode & ~1UL))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	drvdata->cmb->trace_mode = trace_mode;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(cmb_mode);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -835,14 +899,25 @@ static struct attribute *tpdm_dsb_attrs[] = {
 	NULL,
 };
 
+static struct attribute *tpdm_cmb_attrs[] = {
+	&dev_attr_cmb_mode.attr,
+	NULL,
+};
+
 static struct attribute_group tpdm_dsb_attr_grp = {
 	.attrs = tpdm_dsb_attrs,
 	.is_visible = tpdm_dsb_is_visible,
 };
 
+static struct attribute_group tpdm_cmb_attr_grp = {
+	.attrs = tpdm_cmb_attrs,
+	.is_visible = tpdm_cmb_is_visible,
+};
+
 static const struct attribute_group *tpdm_attr_grps[] = {
 	&tpdm_attr_grp,
 	&tpdm_dsb_attr_grp,
+	&tpdm_cmb_attr_grp,
 	NULL,
 };
 
