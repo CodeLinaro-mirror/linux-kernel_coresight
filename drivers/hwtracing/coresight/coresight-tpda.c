@@ -42,11 +42,12 @@ static int tpda_set_element_size(struct tpda_drvdata *drvdata,
 				continue;
 		}
 		if (in_csdev && strstr(dev_name(&in_csdev->dev), "tpdm")) {
-			if (!of_property_read_u32(in_csdev->dev.parent->of_node,
-					"qcom,dsb-elemenet-size", &drvdata->dsb_esize[nr_inport]))
-				break;
-			dev_err(drvdata->dev, "Fail to get data set element size\n");
-			return -EINVAL;
+			of_property_read_u32(in_csdev->dev.parent->of_node,
+					"qcom,dsb-elemenet-size", &drvdata->dsb_esize[nr_inport]);
+			of_property_read_u8(in_csdev->dev.parent->of_node,
+					"qcom,cmb-elemenet-size", &drvdata->cmb_esize[nr_inport]);
+
+			break;
 		}
 		tpda_set_element_size(drvdata, in_csdev, 0);
 	}
@@ -82,6 +83,28 @@ static void tpda_enable_port(struct tpda_drvdata *drvdata, int port)
 	else
 		dev_err(drvdata->dev,
 			"DSB data size input from port[%d] is invalid\n", port);
+
+	/*
+	 * Configure aggregator port n CMB data set element size
+	 * Set the bit to 0 if the size is 8
+	 * Set the bit to 1 if the size is 32
+	 * Set the bit to 1 if the size is 64
+	 */
+	if (drvdata->cmb_esize[port] == 8)
+		val &= ~TPDA_Pn_CR_CMBSIZE;
+	else if (drvdata->cmb_esize[port] == 32)
+		val |= FIELD_PREP(TPDA_Pn_CR_CMBSIZE, 0x1);
+	else if (drvdata->cmb_esize[port] == 32)
+		val |= FIELD_PREP(TPDA_Pn_CR_CMBSIZE, 0x2);
+	else {
+		/*
+		 * CMB element size is not configured.
+		 * Fall back to 32-bit.
+		 */
+		WARN_ON_ONCE(1);
+		val |= FIELD_PREP(TPDA_Pn_CR_CMBSIZE, 0x1);
+	}
+
 	/* Enable the port */
 	val |= TPDA_Pn_CR_ENA;
 	writel_relaxed(val, drvdata->base + TPDA_Pn_CR(port));

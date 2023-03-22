@@ -12,6 +12,8 @@
 #define TPDA_Pn_CR_ENA		BIT(0)
 /* Aggregator port DSB data set element size bit */
 #define TPDA_Pn_CR_DSBSIZE		BIT(8)
+/* Aggregator port CMB data set element size bit */
+#define TPDA_Pn_CR_CMBSIZE	GENMASK(7, 6)
 
 #define TPDA_MAX_INPORTS	32
 
@@ -26,6 +28,7 @@
  * @spinlock:   lock for the drvdata value.
  * @enable:     enable status of the component.
  * @dsb_esize:   DSB element size
+ * @cmb_esize:	CMB element size. Must be 8, 32 or 64.
  */
 struct tpda_drvdata {
 	void __iomem		*base;
@@ -34,6 +37,7 @@ struct tpda_drvdata {
 	spinlock_t		spinlock;
 	u8			atid;
 	u32			dsb_esize[TPDA_MAX_INPORTS];
+	u8			cmb_esize[TPDA_MAX_INPORTS];
 };
 
 #endif  /* _CORESIGHT_CORESIGHT_TPDA_H */
