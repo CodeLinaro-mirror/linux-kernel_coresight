@@ -22,6 +22,8 @@
 #define TPDM_CMB_XPR(n)		(0xA18 + (n * 4))
 /*CMB subunit trigger pattern mask registers*/
 #define TPDM_CMB_XPMR(n)	(0xA20 + (n * 4))
+/* CMB MSR register */
+#define TPDM_CMB_MSR(n)		(0xA80 + (n * 4))
 
 /* Enable bit for CMB subunit */
 #define TPDM_CMB_CR_ENA		BIT(0)
@@ -145,6 +147,8 @@ struct dsb_dataset {
  * @patt_mask:        Save value for pattern mask
  * @trig_patt_val:    Save value for trigger pattern
  * @trig_patt_mask:   Save value for trigger pattern mask
+ * @msr_num:	      The number of msr register
+ * @msr:	      Save value for msr registers
  * @patt_ts:	      Indicates if pattern match for timestamp is enabled.
  * @trig_ts:	      Indicates if CTI trigger for timestamp is enabled.
  * @ts_all:	      Indicates if timestamp is enabled for all packets.
@@ -155,6 +159,8 @@ struct cmb_dataset {
 	u32				patt_mask[TPDM_CMB_MAX_PATT];
 	u32				trig_patt_val[TPDM_CMB_MAX_PATT];
 	u32				trig_patt_mask[TPDM_CMB_MAX_PATT];
+	u32				msr_num;
+	u32				*msr;
 	bool				patt_ts;
 	bool				trig_ts;
 	bool				ts_all;

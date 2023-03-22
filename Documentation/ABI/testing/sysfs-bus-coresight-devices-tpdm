@@ -212,3 +212,9 @@ Description:	(RW) Read or write the status of timestamp upon all interface.
 		Only value 0 and 1  can be written to this node. Set this node to 1 to requeset
 		timestamp to all trace packet.
 
+What:           /sys/bus/coresight/devices/<tpdm-name>/cmb_msr
+Date:           March 2023
+KernelVersion   6.3
+Contact:        Jinlong Mao <quic_jinlmao@quicinc.com>
+Description:    (RW) Read or write the value of CMB msr.
+

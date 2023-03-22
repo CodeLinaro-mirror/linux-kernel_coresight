@@ -72,6 +72,14 @@ static int tpdm_init_datasets(struct tpdm_drvdata *drvdata)
 			if (!drvdata->cmb)
 				return -ENOMEM;
 		}
+
+		/* Get cmb msr number*/
+		of_property_read_u32(drvdata->dev->of_node, "qcom,cmb-msr-num",
+				&drvdata->cmb->msr_num);
+		drvdata->cmb->msr = devm_kzalloc(drvdata->dev,
+					(drvdata->cmb->msr_num * sizeof(u32)), GFP_KERNEL);
+		if (!drvdata->cmb->msr)
+			return -ENOMEM;
 	}
 
 	return 0;
@@ -205,6 +213,12 @@ static void tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
 	else
 		val = val & ~TPDM_CMB_TIER_TS_ALL;
 	writel_relaxed(val, drvdata->base + TPDM_CMB_TIER);
+
+	/* Configure MSR registers */
+	if (drvdata->cmb->msr_num != 0)
+		for (i = 0; i < drvdata->cmb->msr_num; i++)
+			writel_relaxed(drvdata->cmb->msr[i],
+				drvdata->base + TPDM_CMB_MSR(i));
 
 	val = readl_relaxed(drvdata->base + TPDM_CMB_CR);
 	/*
@@ -1159,6 +1173,50 @@ static ssize_t cmb_trig_ts_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(cmb_trig_ts);
 
+static ssize_t cmb_msr_show(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned int i;
+	ssize_t size = 0;
+
+	if (drvdata->cmb->msr_num == 0)
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	for (i = 0; i < drvdata->cmb->msr_num; i++) {
+		size += sysfs_emit_at(buf, size,
+				  "%u 0x%x\n", i, drvdata->cmb->msr[i]);
+	}
+	spin_unlock(&drvdata->spinlock);
+
+	return size;
+}
+
+static ssize_t cmb_msr_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf,
+				  size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned int num, val;
+	int nval;
+
+	if (drvdata->cmb->msr_num == 0)
+		return -EINVAL;
+
+	nval = sscanf(buf, "%u %x", &num, &val);
+	if ((nval != 2) || (num >= (drvdata->cmb->msr_num - 1)))
+		return -EINVAL;
+
+	spin_lock(&drvdata->spinlock);
+	drvdata->cmb->msr[num] = val;
+	spin_unlock(&drvdata->spinlock);
+	return size;
+}
+static DEVICE_ATTR_RW(cmb_msr);
+
 static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_mode.attr,
 	&dev_attr_dsb_edge_ctrl.attr,
@@ -1184,6 +1242,7 @@ static struct attribute *tpdm_cmb_attrs[] = {
 	&dev_attr_cmb_patt_ts.attr,
 	&dev_attr_cmb_ts_all.attr,
 	&dev_attr_cmb_trig_ts.attr,
+	&dev_attr_cmb_msr.attr,
 	NULL,
 };
 
