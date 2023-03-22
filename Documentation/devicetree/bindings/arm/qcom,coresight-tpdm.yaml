@@ -62,6 +62,15 @@ properties:
     minimum: 0
     maximum: 32
 
+  qcom,cmb-msr-num:
+    description:
+      Specifies the number of CMB MSR(mux select register)
+      registers supported by the monitor. If this property is not configured
+      or set to 0, it means this TPDM doesn't support CMB MSR.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 128
+
   clocks:
     maxItems: 1
 
@@ -97,6 +106,7 @@ examples:
 
       qcom,dsb-element-size = <32>;
       qcom,dsb_msr_num = <16>;
+      qcom,cmb-msr-num = <6>;
 
       clocks = <&aoss_qmp>;
       clock-names = "apb_pclk";
