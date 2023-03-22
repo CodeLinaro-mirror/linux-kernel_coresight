@@ -53,6 +53,14 @@ properties:
     minimum: 32
     maximum: 64
 
+  qcom,cmb-element-size:
+    description:
+      Specifies the CMB (Continuous multi-bit) element size supported by
+      the monitor. The associated aggregator will read this size before it
+      is enabled. CMB element size currently supports 8-bit, 32-bit, 64-bit.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [8, 32, 64]
+
   qcom,dsb_msr_num:
     description:
       Specifies the number of DSB(Discrete Single Bit) MSR(mux select register)
@@ -95,6 +103,12 @@ required:
   - clocks
   - clock-names
 
+anyOf:
+  - required:
+      - qcom,dsb_msr_num
+  - required:
+      - qcom,cmb-msr-num
+
 additionalProperties: false
 
 examples:
@@ -105,6 +119,8 @@ examples:
       reg = <0x0684c000 0x1000>;
 
       qcom,dsb-element-size = <32>;
+      qcom,cmb-element-size = <32>;
+
       qcom,dsb_msr_num = <16>;
       qcom,cmb-msr-num = <6>;
 
