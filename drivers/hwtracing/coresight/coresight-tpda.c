@@ -21,6 +21,28 @@
 
 DEFINE_CORESIGHT_DEVLIST(tpda_devs, "tpda");
 
+static int tpda_configure_trace_id(struct tpda_drvdata *drvdata)
+{
+	int traceid, ret;
+	/*
+	 * TPDA must has a unique atid. This atid can uniquely
+	 * identify the TPDM trace source connected to the TPDA.
+	 * The TPDMs which are connected to same TPDA share the
+	 * same trace-id. When TPDA does packetization, different
+	 * port will have unique channel number for decoding.
+	 */
+	if (!drvdata->traceid) {
+		traceid = coresight_trace_id_get_system_id();
+		if (traceid < 0)
+			return traceid;
+
+		drvdata->traceid = traceid;
+	} else
+		ret = coresight_trace_id_set_system_id(drvdata->traceid);
+
+	return ret;
+}
+
 /* Settings pre enabling port control register */
 static void tpda_enable_pre_port(struct tpda_drvdata *drvdata)
 {
@@ -28,8 +50,9 @@ static void tpda_enable_pre_port(struct tpda_drvdata *drvdata)
 
 	val = readl_relaxed(drvdata->base + TPDA_CR);
 	val &= ~TPDA_CR_ATID;
-	val |= FIELD_PREP(TPDA_CR_ATID, drvdata->atid);
+	val |= FIELD_PREP(TPDA_CR_ATID, drvdata->traceid);
 	writel_relaxed(val, drvdata->base + TPDA_CR);
+
 }
 
 static void tpda_enable_port(struct tpda_drvdata *drvdata, int port)
@@ -52,11 +75,17 @@ static void __tpda_enable(struct tpda_drvdata *drvdata, int port)
 	tpda_enable_port(drvdata, port);
 
 	CS_LOCK(drvdata->base);
+
 }
 
 static int tpda_enable(struct coresight_device *csdev, int inport, int outport)
 {
 	struct tpda_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	int ret;
+
+	ret = tpda_configure_trace_id(drvdata);
+	if (ret)
+		return ret;
 
 	spin_lock(&drvdata->spinlock);
 	if (atomic_read(&csdev->refcnt[inport]) == 0)
@@ -87,7 +116,11 @@ static void tpda_disable(struct coresight_device *csdev, int inport,
 {
 	struct tpda_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
+	coresight_trace_id_put_system_id(drvdata->traceid);
 	spin_lock(&drvdata->spinlock);
+
+	drvdata->traceid = 0;
+
 	if (atomic_dec_return(&csdev->refcnt[inport]) == 0)
 		__tpda_disable(drvdata, inport);
 
@@ -105,27 +138,63 @@ static const struct coresight_ops tpda_cs_ops = {
 	.link_ops	= &tpda_link_ops,
 };
 
-static int tpda_init_default_data(struct tpda_drvdata *drvdata)
+static ssize_t traceid_show(struct device *dev,
+			    struct device_attribute *attr, char *buf)
 {
-	int atid;
-	/*
-	 * TPDA must has a unique atid. This atid can uniquely
-	 * identify the TPDM trace source connected to the TPDA.
-	 * The TPDMs which are connected to same TPDA share the
-	 * same trace-id. When TPDA does packetization, different
-	 * port will have unique channel number for decoding.
-	 */
-	atid = coresight_trace_id_get_system_id();
-	if (atid < 0)
-		return atid;
+	int val;
+	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	drvdata->atid = atid;
-	return 0;
+	val = drvdata->traceid;
+	return sysfs_emit(buf, "0x%x\n", val);
+}
+
+static ssize_t traceid_store(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf, size_t size)
+{
+	int ret;
+	unsigned long val;
+	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	ret = kstrtoul(buf, 16, &val);
+	if (ret)
+		return ret;
+
+	if (!IS_VALID_CS_TRACE_ID(val)) {
+		dev_err(drvdata->dev, "Invalid trace id\n");
+		return -EINVAL;
+	}
+
+	if (!drvdata->csdev->enable)
+		drvdata->traceid = val;
+	else
+		dev_err(drvdata->dev, "Device must be enabled! %s\n", __func__);
+
+	return size;
+}
+static DEVICE_ATTR_RW(traceid);
+
+static struct attribute *coresight_tpda_attrs[] = {
+	&dev_attr_traceid.attr,
+	NULL,
+};
+
+static const struct attribute_group coresight_tpda_group = {
+	.attrs = coresight_tpda_attrs,
+};
+
+static const struct attribute_group *coresight_tpda_groups[] = {
+	&coresight_tpda_group,
+	NULL,
+};
+
+static void tpda_init_default_data(struct tpda_drvdata *drvdata)
+{
+	drvdata->traceid = 0;
 }
 
 static int tpda_probe(struct amba_device *adev, const struct amba_id *id)
 {
-	int ret;
 	struct device *dev = &adev->dev;
 	struct coresight_platform_data *pdata;
 	struct tpda_drvdata *drvdata;
@@ -151,9 +220,7 @@ static int tpda_probe(struct amba_device *adev, const struct amba_id *id)
 
 	spin_lock_init(&drvdata->spinlock);
 
-	ret = tpda_init_default_data(drvdata);
-	if (ret)
-		return ret;
+	tpda_init_default_data(drvdata);
 
 	desc.name = coresight_alloc_device_name(&tpda_devs, dev);
 	if (!desc.name)
@@ -164,6 +231,7 @@ static int tpda_probe(struct amba_device *adev, const struct amba_id *id)
 	desc.pdata = adev->dev.platform_data;
 	desc.dev = &adev->dev;
 	desc.access = CSDEV_ACCESS_IOMEM(base);
+	desc.groups = coresight_tpda_groups;
 	drvdata->csdev = coresight_register(&desc);
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
@@ -178,7 +246,6 @@ static void tpda_remove(struct amba_device *adev)
 {
 	struct tpda_drvdata *drvdata = dev_get_drvdata(&adev->dev);
 
-	coresight_trace_id_put_system_id(drvdata->atid);
 	coresight_unregister(drvdata->csdev);
 }
 

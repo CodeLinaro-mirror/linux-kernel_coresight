@@ -233,25 +233,32 @@ static int etm4_cpu_id(struct coresight_device *csdev)
 
 int etm4_read_alloc_trace_id(struct etmv4_drvdata *drvdata)
 {
-	int trace_id;
+	int trace_id, ret = 0;
 
-	/*
-	 * This will allocate a trace ID to the cpu,
-	 * or return the one currently allocated.
-	 * The trace id function has its own lock
-	 */
-	trace_id = coresight_trace_id_get_cpu_id(drvdata->cpu);
-	if (IS_VALID_CS_TRACE_ID(trace_id))
-		drvdata->trcid = (u8)trace_id;
-	else
-		dev_err(&drvdata->csdev->dev,
-			"Failed to allocate trace ID for %s on CPU%d\n",
-			dev_name(&drvdata->csdev->dev), drvdata->cpu);
-	return trace_id;
+	if (!drvdata->trcid) {
+		/*
+		 * This will allocate a trace ID to the cpu,
+		 * or return the one currently allocated.
+		 * The trace id function has its own lock
+		 */
+		trace_id = coresight_trace_id_get_cpu_id(drvdata->cpu);
+		if (IS_VALID_CS_TRACE_ID(trace_id))
+			drvdata->trcid = (u8)trace_id;
+		else {
+			ret = -EINVAL;
+			dev_err(&drvdata->csdev->dev,
+				"Failed to allocate trace ID for %s on CPU%d\n",
+				dev_name(&drvdata->csdev->dev), drvdata->cpu);
+		}
+	} else
+		ret = coresight_trace_id_set_cpu_id(drvdata->cpu, drvdata->trcid);
+
+	return ret;
 }
 
 void etm4_release_trace_id(struct etmv4_drvdata *drvdata)
 {
+	drvdata->trcid = 0;
 	coresight_trace_id_put_cpu_id(drvdata->cpu);
 }
 

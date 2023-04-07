@@ -61,7 +61,20 @@ struct coresight_trace_id_map {
 	DECLARE_BITMAP(pend_rel_ids, CORESIGHT_TRACE_IDS_MAX);
 };
 
+
 /* Allocate and release IDs for a single default trace ID map */
+
+/**
+ * Set the CoreSight Trace Id for the CPU.
+ *
+ * Set CoreSight Trace Id associated with the CPU.
+ *
+ * @cpu: The CPU index for the id.
+ * @id: Coresight Trace ID value.
+ *
+ * return: 0 if set successfully or -EINVAL if fail to set.
+ */
+int coresight_trace_id_set_cpu_id(int cpu, int id);
 
 /**
  * Read and optionally allocate a CoreSight trace ID and associate with a CPU.
@@ -110,6 +123,17 @@ void coresight_trace_id_put_cpu_id(int cpu);
  * return: current value, will be 0 if unallocated.
  */
 int coresight_trace_id_read_cpu_id(int cpu);
+
+/**
+ * Set trace id for a system component.
+ *
+ * Set the trace id if system component needs a static id for the trace.
+ *
+ * @id: value of trace ID.
+ *
+ * return: 0 if set successfully or -EINVAL if fail to set.
+ */
+int coresight_trace_id_set_system_id(int id);
 
 /**
  * Allocate a CoreSight trace ID for a system component.

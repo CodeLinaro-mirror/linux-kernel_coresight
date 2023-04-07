@@ -192,10 +192,29 @@ static void stm_enable_hw(struct stm_drvdata *drvdata)
 	CS_LOCK(drvdata->base);
 }
 
+static int stm_configure_trace_id(struct stm_drvdata *drvdata)
+{
+	int traceid, ret = 0;
+
+	if (!drvdata->traceid) {
+		traceid = coresight_trace_id_get_system_id();
+		if (traceid < 0)
+			return traceid;
+
+		drvdata->traceid = traceid;
+	} else
+		ret = coresight_trace_id_set_system_id(drvdata->traceid);
+
+	return ret;
+
+}
+
 static int stm_enable(struct coresight_device *csdev,
 		      struct perf_event *event, u32 mode)
 {
 	u32 val;
+	int ret;
+
 	struct stm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
 	if (mode != CS_MODE_SYSFS)
@@ -206,6 +225,10 @@ static int stm_enable(struct coresight_device *csdev,
 	/* Someone is already using the tracer */
 	if (val)
 		return -EBUSY;
+
+	ret = stm_configure_trace_id(drvdata);
+	if (ret)
+		return ret;
 
 	pm_runtime_get_sync(csdev->dev.parent);
 
@@ -261,6 +284,8 @@ static void stm_disable(struct coresight_device *csdev,
 	struct stm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 	struct csdev_access *csa = &csdev->access;
 
+
+	coresight_trace_id_put_system_id(drvdata->traceid);
 	/*
 	 * For as long as the tracer isn't disabled another entity can't
 	 * change its status.  As such we can read the status here without
@@ -268,6 +293,7 @@ static void stm_disable(struct coresight_device *csdev,
 	 */
 	if (local_read(&drvdata->mode) == CS_MODE_SYSFS) {
 		spin_lock(&drvdata->spinlock);
+		drvdata->traceid = 0;
 		stm_disable_hw(drvdata);
 		spin_unlock(&drvdata->spinlock);
 
@@ -608,7 +634,33 @@ static ssize_t traceid_show(struct device *dev,
 	val = drvdata->traceid;
 	return sprintf(buf, "%#lx\n", val);
 }
-static DEVICE_ATTR_RO(traceid);
+
+static ssize_t traceid_store(struct device *dev,
+			     struct device_attribute *attr,
+			     const char *buf, size_t size)
+{
+	int ret;
+	unsigned long val;
+	struct stm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	ret = kstrtoul(buf, 16, &val);
+	if (ret)
+		return ret;
+
+	if (!IS_VALID_CS_TRACE_ID(val)) {
+		dev_err(&drvdata->csdev->dev, "Invalid trace id\n");
+		return -EINVAL;
+	}
+
+	if (!drvdata->csdev->enable)
+		drvdata->traceid = val;
+	else
+		dev_err(&drvdata->csdev->dev, "Device must be enabled! %s\n",
+				__func__);
+
+	return size;
+}
+static DEVICE_ATTR_RW(traceid);
 
 static struct attribute *coresight_stm_attrs[] = {
 	&dev_attr_hwevent_enable.attr,
@@ -806,7 +858,7 @@ static void stm_init_generic_data(struct stm_drvdata *drvdata,
 
 static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 {
-	int ret, trace_id;
+	int ret;
 	void __iomem *base;
 	struct device *dev = &adev->dev;
 	struct coresight_platform_data *pdata = NULL;
@@ -890,21 +942,11 @@ static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 		goto stm_unregister;
 	}
 
-	trace_id = coresight_trace_id_get_system_id();
-	if (trace_id < 0) {
-		ret = trace_id;
-		goto cs_unregister;
-	}
-	drvdata->traceid = (u8)trace_id;
-
 	pm_runtime_put(&adev->dev);
 
 	dev_info(&drvdata->csdev->dev, "%s initialized\n",
 		 (char *)coresight_get_uci_data(id));
 	return 0;
-
-cs_unregister:
-	coresight_unregister(drvdata->csdev);
 
 stm_unregister:
 	stm_unregister_device(&drvdata->stm);
@@ -915,7 +957,6 @@ static void stm_remove(struct amba_device *adev)
 {
 	struct stm_drvdata *drvdata = dev_get_drvdata(&adev->dev);
 
-	coresight_trace_id_put_system_id(drvdata->traceid);
 	coresight_unregister(drvdata->csdev);
 
 	stm_unregister_device(&drvdata->stm);

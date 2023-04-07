@@ -22,14 +22,14 @@
  * @dev:        The device entity associated to this component.
  * @csdev:      component vitals needed by the framework.
  * @spinlock:   lock for the drvdata value.
- * @enable:     enable status of the component.
+ * @traceid:    the atid value of TPDA.
  */
 struct tpda_drvdata {
 	void __iomem		*base;
 	struct device		*dev;
 	struct coresight_device	*csdev;
 	spinlock_t		spinlock;
-	u8			atid;
+	u8			traceid;
 };
 
 #endif  /* _CORESIGHT_CORESIGHT_TPDA_H */

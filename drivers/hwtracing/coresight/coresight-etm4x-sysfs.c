@@ -2335,6 +2335,35 @@ out:
 }
 static DEVICE_ATTR_RO(ts_source);
 
+static ssize_t traceid_show(struct device *dev,
+			    struct device_attribute *attr, char *buf)
+{
+	int val;
+	struct etmv4_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	val = drvdata->trcid;
+	return sysfs_emit(buf, "0x%x\n", val);
+}
+
+static ssize_t traceid_store(struct device *dev,
+			    struct device_attribute *attr,
+			    const char *buf, size_t size)
+{
+	int ret;
+	unsigned long val;
+	struct etmv4_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	ret = kstrtoul(buf, 16, &val);
+	if (ret)
+		return ret;
+
+	if (!drvdata->csdev->enable)
+		drvdata->trcid = val;
+
+	return size;
+}
+static DEVICE_ATTR_RW(traceid);
+
 static struct attribute *coresight_etmv4_attrs[] = {
 	&dev_attr_nr_pe_cmp.attr,
 	&dev_attr_nr_addr_cmp.attr,
@@ -2390,6 +2419,7 @@ static struct attribute *coresight_etmv4_attrs[] = {
 	&dev_attr_vmid_masks.attr,
 	&dev_attr_cpu.attr,
 	&dev_attr_ts_source.attr,
+	&dev_attr_traceid.attr,
 	NULL,
 };
 

@@ -110,6 +110,19 @@ trace_id_allocated:
 	return id;
 }
 
+static int coresight_trace_id_set(int id, struct coresight_trace_id_map *id_map)
+{
+	if (WARN(!IS_VALID_CS_TRACE_ID(id), "Invalid Trace ID %d\n", id))
+		return -EINVAL;
+	if (WARN(test_bit(id, id_map->used_ids), "ID is already used: %d\n", id))
+		return -EINVAL;
+	set_bit(id, id_map->used_ids);
+
+	DUMP_ID_MAP(id_map);
+
+	return 0;
+}
+
 static void coresight_trace_id_free(int id, struct coresight_trace_id_map *id_map)
 {
 	if (WARN(!IS_VALID_CS_TRACE_ID(id), "Invalid Trace ID %d\n", id))
@@ -195,6 +208,37 @@ get_cpu_id_out_unlock:
 	return id;
 }
 
+static int coresight_trace_id_map_set_cpu_id(int cpu, int id, struct coresight_trace_id_map *id_map)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&id_map_lock, flags);
+
+	if (WARN(!IS_VALID_CS_TRACE_ID(id), "Invalid Trace ID %d\n", id)) {
+		spin_unlock_irqrestore(&id_map_lock, flags);
+		return -EINVAL;
+	}
+
+	if (WARN(test_bit(id, id_map->used_ids), "ID is already used: %d\n", id)) {
+		spin_unlock_irqrestore(&id_map_lock, flags);
+		return -EINVAL;
+	}
+
+	set_bit(id, id_map->used_ids);
+
+	/* allocate the new id to the cpu */
+	atomic_set(&per_cpu(cpu_id, cpu), id);
+
+	cpumask_clear_cpu(cpu, &cpu_id_release_pending);
+	clear_bit(id, id_map->pend_rel_ids);
+
+	spin_unlock_irqrestore(&id_map_lock, flags);
+	DUMP_ID_CPU(cpu, id);
+	DUMP_ID_MAP(id_map);
+
+	return 0;
+}
+
 static void coresight_trace_id_map_put_cpu_id(int cpu, struct coresight_trace_id_map *id_map)
 {
 	unsigned long flags;
@@ -251,6 +295,12 @@ static void coresight_trace_id_map_put_system_id(struct coresight_trace_id_map *
 
 /* API functions */
 
+int coresight_trace_id_set_cpu_id(int cpu, int id)
+{
+	return coresight_trace_id_map_set_cpu_id(cpu, id, &id_map_default);
+}
+EXPORT_SYMBOL_GPL(coresight_trace_id_set_cpu_id);
+
 int coresight_trace_id_get_cpu_id(int cpu)
 {
 	return coresight_trace_id_map_get_cpu_id(cpu, &id_map_default);
@@ -268,6 +318,12 @@ int coresight_trace_id_read_cpu_id(int cpu)
 	return _coresight_trace_id_read_cpu_id(cpu);
 }
 EXPORT_SYMBOL_GPL(coresight_trace_id_read_cpu_id);
+
+int coresight_trace_id_set_system_id(int id)
+{
+	return coresight_trace_id_set(id, &id_map_default);
+}
+EXPORT_SYMBOL_GPL(coresight_trace_id_set_system_id);
 
 int coresight_trace_id_get_system_id(void)
 {
