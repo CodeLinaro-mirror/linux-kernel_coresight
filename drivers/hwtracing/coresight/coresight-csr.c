@@ -18,6 +18,29 @@ DEFINE_CORESIGHT_DEVLIST(csr_devs, "csr");
 
 static LIST_HEAD(csr_list);
 
+#define to_csr_drvdata(c) container_of(c, struct csr_drvdata, csr)
+
+void coresight_csr_set_byte_cntr(struct coresight_csr *csr,
+					uint32_t count)
+{
+	struct csr_drvdata *drvdata;
+	unsigned long flags;
+
+	if (csr == NULL)
+		return;
+
+	drvdata = to_csr_drvdata(csr);
+	if (IS_ERR_OR_NULL(drvdata) || !drvdata->set_byte_cntr_support)
+		return;
+
+	spin_lock_irqsave(&drvdata->spin_lock, flags);
+	CS_UNLOCK(drvdata->base);
+	writel_relaxed(count, drvdata->base + CSR_BYTECNTVAL);
+	CS_UNLOCK(drvdata->base);
+	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+}
+EXPORT_SYMBOL(coresight_csr_set_byte_cntr);
+
 /*
  * Get the CSR by name.
  */
@@ -84,6 +107,9 @@ static int csr_probe(struct platform_device *pdev)
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
+
+	drvdata->set_byte_cntr_support = of_property_read_bool(
+			pdev->dev.of_node, "qcom,set-byte-cntr-support");
 
 	desc.type = CORESIGHT_DEV_TYPE_HELPER;
 	desc.pdata = pdev->dev.platform_data;

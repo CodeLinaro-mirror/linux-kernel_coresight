@@ -10,6 +10,8 @@
 #include <linux/kernel.h>
 #include <linux/of.h>
 
+#define CSR_BYTECNTVAL		(0x06C)
+
 struct coresight_csr {
 	const char *name;
 	struct list_head link;
@@ -17,13 +19,14 @@ struct coresight_csr {
 
 /**
  * struct csr_drvdata - specifics for the CSR device.
- * @base:	Memory mapped base address for this component.
- * @pbase:	Physical address base.
- * @dev:	The device entity associated to this component.
- * @csdev:	Data struct for coresight device.
- * @csr:	CSR struct
- * @clk:	Clock of this component.
- * @spin_lock:	Spin lock for the data.
+ * @base: Memory mapped base address for this component.
+ * @pbase: Physical address base.
+ * @dev: The device entity associated to this component.
+ * @csdev: Data struct for coresight device.
+ * @csr: CSR struct
+ * @clk: Clock of this component.
+ * @spin_lock: Spin lock for the data.
+ * @set_byte_cntr_support: Support set byte contr value or not.
  */
 struct csr_drvdata {
 	void __iomem		*base;
@@ -33,7 +36,9 @@ struct csr_drvdata {
 	struct coresight_csr	csr;
 	struct clk		*clk;
 	spinlock_t		spin_lock;
+	bool			set_byte_cntr_support;
 };
+
 #if IS_ENABLED(CONFIG_CORESIGHT_CSR)
 extern void coresight_csr_set_byte_cntr(struct coresight_csr *csr, uint32_t count);
 extern struct coresight_csr *coresight_csr_get(const char *name);

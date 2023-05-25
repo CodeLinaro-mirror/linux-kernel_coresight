@@ -91,3 +91,10 @@ Contact:	Mathieu Poirier <mathieu.poirier@linaro.org>
 Description:	(RW) Size of the trace buffer for TMC-ETR when used in SYSFS
 		mode. Writable only for TMC-ETR configurations. The value
 		should be aligned to the kernel pagesize.
+
+What:		/sys/bus/coresight/devices/<memory_map>.tmc/block_size
+Date:		May 2023
+KernelVersion:	6.3
+Contact:	Mao Jinlong <quic_jinlmao@quicinc.com>
+Description:	(RW) Size of the ETR irq byte counter value. The value
+		need to be greater than 4096.

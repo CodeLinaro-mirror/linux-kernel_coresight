@@ -13,6 +13,9 @@
 #include <linux/mutex.h>
 #include <linux/refcount.h>
 
+#include "coresight-csr.h"
+#include "coresight-byte-cntr.h"
+
 #define TMC_RSZ			0x004
 #define TMC_STS			0x00c
 #define TMC_RRD			0x010
@@ -187,6 +190,9 @@ struct etr_buf {
  * @idr_mutex:	Access serialisation for idr.
  * @sysfs_buf:	SYSFS buffer for ETR.
  * @perf_buf:	PERF buffer for ETR.
+ * @csr:	CSR data struct of ETR.
+ * @csr_name:	CSR node name.
+ * @byte_cntr:	Byte_cntr data of ETR.
  */
 struct tmc_drvdata {
 	void __iomem		*base;
@@ -211,6 +217,9 @@ struct tmc_drvdata {
 	struct mutex		idr_mutex;
 	struct etr_buf		*sysfs_buf;
 	struct etr_buf		*perf_buf;
+	struct coresight_csr	*csr;
+	const char		*csr_name;
+	struct byte_cntr	*byte_cntr;
 };
 
 struct etr_buf_operations {
@@ -276,7 +285,8 @@ void tmc_etr_disable_hw(struct tmc_drvdata *drvdata);
 extern const struct coresight_ops tmc_etr_cs_ops;
 ssize_t tmc_etr_get_sysfs_trace(struct tmc_drvdata *drvdata,
 				loff_t pos, size_t len, char **bufpp);
-
+ssize_t tmc_etr_buf_get_data(struct etr_buf *etr_buf,
+				u64 offset, size_t len, char **bufpp);
 
 #define TMC_REG_PAIR(name, lo_off, hi_off)				\
 static inline u64							\
