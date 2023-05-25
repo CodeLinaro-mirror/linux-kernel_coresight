@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: GPL-2.0-only or BSD-2-Clause
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/arm/qcom,coresight-csr.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: CoreSight Slave Register - TPDA
+
+description: |
+  CoreSight Slave Register block hosts miscellaneous configuration registers.
+  Those configuration registers can be used to control, various coresight
+  configurations.
+
+maintainers:
+  - Mao Jinlong <quic_jinlmao@quicinc.com>
+  - Hao Zhang <quic_hazha@quicinc.com>
+
+properties:
+  $nodename:
+    pattern: "^csr(@[0-9a-f]+)$"
+  compatible:
+    items:
+      - const: qcom,coresight-csr
+
+  reg:
+    minItems: 1
+    maxItems: 2
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    items:
+      - const: apb_pclk
+
+  qcom,set-byte-cntr-support:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      If set, indicates that CSR supports to set ETR_IRQ_CTRL register.
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  # minimum CSR definition.
+  - |
+    csr@10001000 {
+      compatible = "qcom,coresight-csr";
+      reg = <0 0x10001000 0 0x1000>;
+
+      clocks = <&aoss_qmp>;
+      clock-names = "apb_pclk";
+      qcom,set-byte-cntr-support;
+    };
+
+...
