@@ -21,6 +21,58 @@
 
 DEFINE_CORESIGHT_DEVLIST(tpda_devs, "tpda");
 
+/* Search and read element data size from the TPDM node in
+ * the devicetree. Each input port of TPDA is connected to
+ * a TPDM. Different TPDM supports different types of dataset,
+ * and some may support more than one type of dataset.
+ * Parameter "inport" is used to pass in the input port number
+ * of TPDA, and it is set to 0 in the recursize call.
+ * Parameter "parent" is used to pass in the original call.
+ */
+static int tpda_set_element_size(struct tpda_drvdata *drvdata,
+			   struct coresight_device *csdev, int inport, bool match_inport)
+{
+	static int nr_inport;
+	int i;
+	static bool tpdm_found;
+	struct coresight_device *in_csdev;
+
+	if (inport > (TPDA_MAX_INPORTS - 1))
+		return -EINVAL;
+
+	if (match_inport) {
+		nr_inport = inport;
+		tpdm_found = false;
+	}
+
+	for (i = 0; i < csdev->pdata->nr_inconns; i++) {
+		in_csdev = csdev->pdata->in_conns[i]->src_dev;
+		if (!in_csdev)
+			break;
+
+		if (match_inport)
+			if (csdev->pdata->in_conns[i]->dest_port != inport)
+				continue;
+
+		if ((in_csdev->type == CORESIGHT_DEV_TYPE_SOURCE) &&
+				(in_csdev->subtype.source_subtype
+				== CORESIGHT_DEV_SUBTYPE_SOURCE_TPDM)) {
+			of_property_read_u8(in_csdev->dev.parent->of_node,
+					"qcom,dsb-element-size", &drvdata->dsb_esize[nr_inport]);
+			if (!tpdm_found)
+				tpdm_found = true;
+			else
+				dev_warn(drvdata->dev,
+					"More than one TPDM is mapped to the TPDA input port %d.\n",
+					nr_inport);
+			continue;
+		}
+		tpda_set_element_size(drvdata, in_csdev, 0, false);
+	}
+
+	return 0;
+}
+
 /* Settings pre enabling port control register */
 static void tpda_enable_pre_port(struct tpda_drvdata *drvdata)
 {
@@ -32,26 +84,43 @@ static void tpda_enable_pre_port(struct tpda_drvdata *drvdata)
 	writel_relaxed(val, drvdata->base + TPDA_CR);
 }
 
-static void tpda_enable_port(struct tpda_drvdata *drvdata, int port)
+static int tpda_enable_port(struct tpda_drvdata *drvdata, int port)
 {
 	u32 val;
 
 	val = readl_relaxed(drvdata->base + TPDA_Pn_CR(port));
+	/*
+	 * Configure aggregator port n DSB data set element size
+	 * Set the bit to 0 if the size is 32
+	 * Set the bit to 1 if the size is 64
+	 */
+	if (drvdata->dsb_esize[port] == 32)
+		val &= ~TPDA_Pn_CR_DSBSIZE;
+	else if (drvdata->dsb_esize[port] == 64)
+		val |= TPDA_Pn_CR_DSBSIZE;
+	else
+		return -EINVAL;
+
 	/* Enable the port */
 	val |= TPDA_Pn_CR_ENA;
 	writel_relaxed(val, drvdata->base + TPDA_Pn_CR(port));
+
+	return 0;
 }
 
-static void __tpda_enable(struct tpda_drvdata *drvdata, int port)
+static int __tpda_enable(struct tpda_drvdata *drvdata, int port)
 {
+	int ret;
+
 	CS_UNLOCK(drvdata->base);
 
 	if (!drvdata->csdev->enable)
 		tpda_enable_pre_port(drvdata);
 
-	tpda_enable_port(drvdata, port);
-
+	ret = tpda_enable_port(drvdata, port);
 	CS_LOCK(drvdata->base);
+
+	return ret;
 }
 
 static int tpda_enable(struct coresight_device *csdev,
@@ -59,16 +128,23 @@ static int tpda_enable(struct coresight_device *csdev,
 		       struct coresight_connection *out)
 {
 	struct tpda_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	int ret;
+
+	ret = tpda_set_element_size(drvdata, csdev, in->dest_port, true);
+	if (ret)
+		return ret;
 
 	spin_lock(&drvdata->spinlock);
-	if (atomic_read(&in->dest_refcnt) == 0)
-		__tpda_enable(drvdata, in->dest_port);
+	if (atomic_read(&in->dest_refcnt) == 0) {
+		ret = __tpda_enable(drvdata, in->dest_port);
+		if (!ret) {
+			atomic_inc(&in->dest_refcnt);
+			dev_dbg(drvdata->dev, "TPDA inport %d enabled.\n", in->dest_port);
+		}
+	}
 
-	atomic_inc(&in->dest_refcnt);
 	spin_unlock(&drvdata->spinlock);
-
-	dev_dbg(drvdata->dev, "TPDA inport %d enabled.\n", in->dest_port);
-	return 0;
+	return ret;
 }
 
 static void __tpda_disable(struct tpda_drvdata *drvdata, int port)
