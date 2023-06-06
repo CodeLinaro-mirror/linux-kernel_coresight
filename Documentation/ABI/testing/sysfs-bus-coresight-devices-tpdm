@@ -92,3 +92,31 @@ Description:
 		<integer1> : Start EDCMR register number
 		<integer2> : End EDCMR register number
 		<integer3> : The value need to be written
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/dsb_trig_patt_val
+Date:		March 2023
+KernelVersion	6.5
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>, Tao Zhang (QUIC) <quic_taozha@quicinc.com>
+Description:
+		(Write) Set the trigger pattern value of DSB tpdm.
+		Read the trigger pattern value of DSB tpdm.
+
+		Expected format is the following:
+		<integer1> <integer2>
+
+		Where:
+		<integer1> : Index number of XPR register, the range is 0 to 7
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/dsb_trig_patt_mask
+Date:		March 2023
+KernelVersion	6.5
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>, Tao Zhang (QUIC) <quic_taozha@quicinc.com>
+Description:
+		(Write) Set the trigger pattern mask of DSB tpdm.
+		Read the trigger pattern mask of DSB tpdm.
+
+		Expected format is the following:
+		<integer1> <integer2>
+
+		Where:
+		<integer1> : Index number of XPMR register,  the range is 0 to 7
