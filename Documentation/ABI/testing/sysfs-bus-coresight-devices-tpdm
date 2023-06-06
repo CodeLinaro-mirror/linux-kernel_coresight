@@ -60,3 +60,35 @@ Description:
 		Bit[3] : Set to 0 for low performance mode.
 				 Set to 1 for high performance mode.
 		Bit[4:8] : Select byte lane for high performance mode.
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/dsb_edge_ctrl
+Date:		March 2023
+KernelVersion	6.5
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>, Tao Zhang (QUIC) <quic_taozha@quicinc.com>
+Description:
+		Read/Write a set of the edge control registers of the DSB
+		in TPDM.
+
+		Expected format is the following:
+		<integer1> <integer2> <integer3>
+
+		Where:
+		<integer1> : Start EDCR register number
+		<integer2> : End EDCR register number
+		<integer3> : The value need to be written
+
+What:		/sys/bus/coresight/devices/<tpdm-name>/dsb_edge_ctrl_mask
+Date:		March 2023
+KernelVersion	6.5
+Contact:	Jinlong Mao (QUIC) <quic_jinlmao@quicinc.com>, Tao Zhang (QUIC) <quic_taozha@quicinc.com>
+Description:
+		Read/Write a set of the edge control mask registers of the
+		DSB in TPDM.
+
+		Expected format is the following:
+		<integer1> <integer2> <integer3>
+
+		Where:
+		<integer1> : Start EDCMR register number
+		<integer2> : End EDCMR register number
+		<integer3> : The value need to be written
