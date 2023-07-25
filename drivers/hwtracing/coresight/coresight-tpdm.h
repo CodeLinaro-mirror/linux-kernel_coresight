@@ -18,6 +18,7 @@
 #define TPDM_DSB_XPMR(n)	(0x7E8 + (n * 4))
 #define TPDM_DSB_EDCR(n)	(0x808 + (n * 4))
 #define TPDM_DSB_EDCMR(n)	(0x848 + (n * 4))
+#define TPDM_DSB_MSR(n)		(0x980 + (n * 4))
 
 /* Enable bit for DSB subunit */
 #define TPDM_DSB_CR_ENA		BIT(0)
@@ -100,6 +101,9 @@
  * @patt_mask:          Save value for pattern mask
  * @trig_patt:          Save value for trigger pattern
  * @trig_patt_mask:     Save value for trigger pattern mask
+ * @msr_num             Number of MSR supported by DSB TPDM
+ * @msr_idx             Index number of the MSR
+ * @msr                 Save value for MSR
  * @patt_ts:            Enable/Disable pattern timestamp
  * @patt_type:          Set pattern type
  * @trig_ts:            Enable/Disable trigger timestamp.
@@ -116,6 +120,9 @@ struct dsb_dataset {
 	u32				patt_mask[TPDM_DSB_MAX_PATT];
 	u32				trig_patt[TPDM_DSB_MAX_PATT];
 	u32				trig_patt_mask[TPDM_DSB_MAX_PATT];
+	u32				msr_num;
+	u32				msr_idx;
+	u32				*msr;
 	bool			patt_ts;
 	bool			patt_type;
 	bool			trig_ts;
