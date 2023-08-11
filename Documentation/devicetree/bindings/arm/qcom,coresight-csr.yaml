@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/arm/qcom,coresight-csr.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: CoreSight Slave Register - CSR
+
+description: |
+  CoreSight Slave Register block hosts miscellaneous configuration registers.
+  Those configuration registers can be used to control, various coresight
+  configurations.
+
+maintainers:
+  - Mao Jinlong <quic_jinlmao@quicinc.com>
+  - Hao Zhang <quic_hazha@quicinc.com>
+
+properties:
+  $nodename:
+    pattern: "^csr(@[0-9a-f]+)$"
+  compatible:
+    items:
+      - const: qcom,coresight-csr
+
+  reg:
+    minItems: 1
+    maxItems: 2
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    items:
+      - const: apb_pclk
+
+  # size cells and address cells required if assoc_device node present.
+  "#size-cells":
+    const: 0
+
+  "#address-cells":
+    const: 1
+
+patternProperties:
+  '^assoc_device@([0-9]+)$':
+    type: object
+    description:
+      A assocated device child node which describes the required configs
+      between this CSR and another hardware device. This device may be ETR or
+      TPDM device.
+
+    properties:
+      reg:
+        maxItems: 1
+
+      arm,cs-dev-assoc:
+        $ref: /schemas/types.yaml#/definitions/phandle
+        description:
+          defines a phandle reference to an associated CoreSight trace device.
+          When the associated trace device is enabled, then the respective CSR
+          will be enabled. If the associated device has not been registered
+          then the node name will be stored as the assocated name for later
+          resolution.
+
+      qcom,cs-dev-type:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description:
+          Device type of the Assocated device. Types are in coresight-csr-dt.h.
+
+      qcom,csr-bytecntr-offset:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description:
+          The ETR irqctrl register offset. If the assocated device is ETR
+          device and there are more than one ETR devices, this property need
+          to be added.
+
+      interrupts:
+        minItems: 1
+
+      interrupt-names:
+        minItems: 1
+
+    required:
+      - reg
+      - qcom,cs-dev-type
+      - qcom,cs-dev-assoc
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  # minimum CSR definition.
+  - |
+    csr@10001000 {
+      compatible = "qcom,coresight-csr";
+      reg = <0 0x10001000 0 0x1000>;
+
+      clocks = <&aoss_qmp>;
+      clock-names = "apb_pclk";
+    };
+  # Assocated with ETR device
+  - |
+    #include <dt-bindings/arm/coresight-csr-dt.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    csr@10001000 {
+      compatible = "qcom,coresight-csr";
+      reg = <0 0x10001000 0 0x1000>;
+
+      clocks = <&aoss_qmp>;
+      clock-names = "apb_pclk";
+
+      #address-cells = <1>;
+      #size-cells = <0>;
+      assoc_device@0 {
+        reg = <0>;
+        qcom,cs-dev-type = <CSR_ASSOC_DEV_ETR>;
+        qcom,cs-dev-assoc = <&tmc_etr>;
+        qcom,csr-bytecntr-offset = <0x6c>;
+        interrupts = <GIC_SPI 270 IRQ_TYPE_EDGE_RISING>;
+        interrupt-names = "byte-cntr-irq";
+      };
+    };
+...
+
