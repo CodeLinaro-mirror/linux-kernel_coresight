@@ -905,7 +905,7 @@ static void tmc_free_etr_buf(struct etr_buf *etr_buf)
  * Returns: The size of the linear data available @pos, with *bufpp
  * updated to point to the buffer.
  */
-static ssize_t tmc_etr_buf_get_data(struct etr_buf *etr_buf,
+ssize_t tmc_etr_buf_get_data(struct etr_buf *etr_buf,
 				    u64 offset, size_t len, char **bufpp)
 {
 	/* Adjust the length to limit this transaction to end of buffer */
@@ -913,6 +913,7 @@ static ssize_t tmc_etr_buf_get_data(struct etr_buf *etr_buf,
 
 	return etr_buf->ops->get_data(etr_buf, (u64)offset, len, bufpp);
 }
+EXPORT_SYMBOL_GPL(tmc_etr_buf_get_data);
 
 static inline s64
 tmc_etr_buf_insert_barrier_packet(struct etr_buf *etr_buf, u64 offset)

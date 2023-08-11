@@ -1,0 +1,6 @@
+What:		/sys/bus/coresight/devices/<memory_map>.csr/etr_byte_cntr_val
+Date:		August 2023
+KernelVersion:	6.5
+Contact:	Mao Jinlong <quic_jinlmao@quicinc.com>
+Description:	(RW) Size of the ETR irq byte counter value.
+

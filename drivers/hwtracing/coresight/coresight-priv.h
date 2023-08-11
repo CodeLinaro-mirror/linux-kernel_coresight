@@ -164,6 +164,14 @@ struct cti_assoc_op {
 extern void coresight_set_cti_ops(const struct cti_assoc_op *cti_op);
 extern void coresight_remove_cti_ops(void);
 
+struct csr_assoc_op {
+	void (*add)(struct coresight_device *csdev);
+	void (*remove)(struct coresight_device *csdev);
+};
+
+extern void coresight_set_csr_ops(const struct csr_assoc_op *csr_op);
+extern void coresight_remove_csr_ops(void);
+
 /*
  * Macros and inline functions to handle CoreSight UCI data and driver
  * private data in AMBA ID table entries, and extract data values.
