@@ -60,6 +60,7 @@ const u32 coresight_barrier_pkt[4] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fff
 EXPORT_SYMBOL_GPL(coresight_barrier_pkt);
 
 static const struct cti_assoc_op *cti_assoc_ops;
+static const struct csr_assoc_op *csr_assoc_ops;
 
 ssize_t coresight_simple_show_pair(struct device *_dev,
 			      struct device_attribute *attr, char *buf)
@@ -88,6 +89,18 @@ ssize_t coresight_simple_show32(struct device *_dev,
 	return sysfs_emit(buf, "0x%llx\n", val);
 }
 EXPORT_SYMBOL_GPL(coresight_simple_show32);
+
+void coresight_set_csr_ops(const struct csr_assoc_op *csr_op)
+{
+	csr_assoc_ops = csr_op;
+}
+EXPORT_SYMBOL_GPL(coresight_set_csr_ops);
+
+void coresight_remove_csr_ops(void)
+{
+	csr_assoc_ops = NULL;
+}
+EXPORT_SYMBOL_GPL(coresight_remove_csr_ops);
 
 void coresight_set_cti_ops(const struct cti_assoc_op *cti_op)
 {
@@ -416,14 +429,14 @@ static int coresight_enable_helper(struct coresight_device *csdev,
 	return 0;
 }
 
-static void coresight_disable_helper(struct coresight_device *csdev)
+static void coresight_disable_helper(struct coresight_device *csdev, void *data)
 {
 	int ret;
 
 	if (!helper_ops(csdev)->disable)
 		return;
 
-	ret = helper_ops(csdev)->disable(csdev, NULL);
+	ret = helper_ops(csdev)->disable(csdev, data);
 	if (ret)
 		return;
 	csdev->enable = false;
@@ -437,7 +450,7 @@ static void coresight_disable_helpers(struct coresight_device *csdev)
 	for (i = 0; i < csdev->pdata->nr_outconns; ++i) {
 		helper = csdev->pdata->out_conns[i]->dest_dev;
 		if (helper && coresight_is_helper(helper))
-			coresight_disable_helper(helper);
+			coresight_disable_helper(helper, csdev);
 	}
 }
 
@@ -535,7 +548,11 @@ static int coresight_enable_helpers(struct coresight_device *csdev,
 		if (!helper || !coresight_is_helper(helper))
 			continue;
 
-		ret = coresight_enable_helper(helper, mode, data);
+		if (helper->subtype.helper_subtype == CORESIGHT_DEV_SUBTYPE_HELPER_CSR)
+			ret = coresight_enable_helper(helper, mode, csdev);
+		else
+			ret = coresight_enable_helper(helper, mode, data);
+
 		if (ret)
 			return ret;
 	}
@@ -1639,6 +1656,9 @@ out_unlock:
 	if (!ret) {
 		if (cti_assoc_ops && cti_assoc_ops->add)
 			cti_assoc_ops->add(csdev);
+
+		if (csr_assoc_ops && csr_assoc_ops->add)
+			csr_assoc_ops->add(csdev);
 		return csdev;
 	}
 
@@ -1661,6 +1681,9 @@ void coresight_unregister(struct coresight_device *csdev)
 	/* Remove references of that device in the topology */
 	if (cti_assoc_ops && cti_assoc_ops->remove)
 		cti_assoc_ops->remove(csdev);
+
+	if (csr_assoc_ops && csr_assoc_ops->remove)
+		csr_assoc_ops->remove(csdev);
 	coresight_remove_conns(csdev);
 	coresight_clear_default_sink(csdev);
 	coresight_release_platform_data(csdev, csdev->dev.parent, csdev->pdata);
