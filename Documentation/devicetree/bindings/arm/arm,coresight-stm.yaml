@@ -64,6 +64,10 @@ properties:
   power-domains:
     maxItems: 1
 
+  trace-id:
+    maxItems: 1
+    description: If STM needs static id support, use this to set id.
+
   out-ports:
     $ref: /schemas/graph.yaml#/properties/ports
     additionalProperties: false
