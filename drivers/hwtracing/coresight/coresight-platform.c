@@ -184,6 +184,30 @@ static int of_coresight_get_cpu(struct device *dev)
 }
 
 /*
+ * of_coresight_get_atid_number: Get the atid number of a source device.
+ *
+ * Returns the number of the atid. If the result is less than zero, it means
+ * failure.
+ */
+static int of_coresight_get_trace_id_num(struct device *dev)
+{
+	if (!dev->of_node)
+		return -ENODEV;
+
+	return of_property_count_u32_elems(dev->of_node, "trace-id");
+}
+
+/*
+ * of_coresight_get_atid: Get the atid array of a source device.
+ *
+ * Returns 0 on success.
+ */
+static int of_coresight_get_trace_id(struct device *dev, u32 *id, int num)
+{
+	return of_property_read_u32_array(dev->of_node, "trace-id", id, num);
+}
+
+/*
  * of_coresight_parse_endpoint : Parse the given output endpoint @ep
  * and fill the connection information in @pdata->out_conns
  *
@@ -315,6 +339,17 @@ static inline int of_coresight_get_cpu(struct device *dev)
 {
 	return -ENODEV;
 }
+
+static int of_coresight_get_atid_num(struct device *dev)
+{
+	return -ENODEV;
+}
+
+static int of_coresight_get_atid(struct device *dev, u32 *atid, int atid_num)
+{
+	return -ENODEV;
+}
+
 #endif
 
 #ifdef CONFIG_ACPI
@@ -793,6 +828,38 @@ int coresight_get_cpu(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(coresight_get_cpu);
+
+/*
+ * Get the trace id number from DT node for the
+ * static id support. Some coresight component can
+ * support more than one trace ids.
+ */
+int coresight_get_trace_id_num(struct device *dev)
+{
+	if (!is_of_node(dev->fwnode))
+		return -EINVAL;
+
+	return of_coresight_get_trace_id_num(dev);
+}
+EXPORT_SYMBOL_GPL(coresight_get_trace_id_num);
+
+int coresight_get_trace_id(struct device *dev, u32 *trace_id)
+{
+	int num = 0;
+
+	if (!is_of_node(dev->fwnode))
+		return -EINVAL;
+
+	if (!trace_id)
+		return -EINVAL;
+
+	num = of_coresight_get_trace_id_num(dev);
+	if (num < 0)
+		return -ENODEV;
+
+	return of_coresight_get_trace_id(dev, trace_id, num);
+}
+EXPORT_SYMBOL_GPL(coresight_get_trace_id);
 
 struct coresight_platform_data *
 coresight_get_platform_data(struct device *dev)
