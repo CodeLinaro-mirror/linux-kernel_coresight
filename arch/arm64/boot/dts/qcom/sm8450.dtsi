@@ -4222,6 +4222,7 @@
 			clocks = <&aoss_qmp>;
 			clock-names = "apb_pclk";
 
+			trace-id = <16>;
 			out-ports {
 				port {
 					stm_out_funnel_in0: endpoint {
