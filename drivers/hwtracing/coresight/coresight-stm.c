@@ -901,11 +901,25 @@ static int __stm_probe(struct device *dev, struct resource *res)
 		goto stm_unregister;
 	}
 
-	trace_id = coresight_trace_id_get_system_id();
-	if (trace_id < 0) {
-		ret = trace_id;
-		goto cs_unregister;
+	/*
+	 * Use static trace id if trace-id is configured in DT.
+	 * STM supports only one trace-id. If trace id in DT is
+	 * used by other components, probe will fail. Need to
+	 * correct the trace-id in DT to avoid the conflict.
+	 */
+	ret = coresight_get_trace_id(dev, &trace_id);
+	if (ret) {
+		trace_id = coresight_trace_id_get_system_id();
+		if (trace_id < 0) {
+			ret = trace_id;
+			goto cs_unregister;
+		}
+	} else {
+		ret = coresight_trace_id_reserve_system_id(trace_id);
+		if (ret)
+			goto cs_unregister;
 	}
+
 	drvdata->traceid = (u8)trace_id;
 
 	dev_info(&drvdata->csdev->dev, "%s initialized\n",
