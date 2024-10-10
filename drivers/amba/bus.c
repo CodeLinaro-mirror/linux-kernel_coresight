@@ -50,6 +50,13 @@ amba_cs_uci_id_match(const struct amba_id *table, struct amba_device *dev)
 static const struct amba_id *
 amba_lookup(const struct amba_id *table, struct amba_device *dev)
 {
+	if(strstr(dev_name(&dev->dev),"tpda")){
+		dev_err(&dev->dev,"DEBUGGING: Periphid id is %x\n",dev->periphid);
+		if((dev->periphid & table->mask) == table->id){
+			dev_err(&dev->dev,"match successfully\n");
+		}
+	}
+
 	while (table->mask) {
 		if (((dev->periphid & table->mask) == table->id) &&
 			((dev->cid != CORESIGHT_CID) ||
