@@ -4985,7 +4985,7 @@ static void __dev_probe_failed(const struct device *dev, int err, bool fatal,
 	switch (err) {
 	case -EPROBE_DEFER:
 		device_set_deferred_probe_reason(dev, &vaf);
-		dev_dbg(dev, "error %pe: %pV", ERR_PTR(err), &vaf);
+		dev_err(dev, "error %pe: %pV", ERR_PTR(err), &vaf);
 		break;
 
 	case -ENOMEM:

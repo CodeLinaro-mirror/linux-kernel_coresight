@@ -4675,14 +4675,59 @@
 			clock-names = "apb_pclk";
 
 			out-ports {
-				port {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg=<0>;
 					tpdm_swao_prio_0_out_tpda_aoss: endpoint {
 						remote-endpoint =
 							<&tpda_aoss_in_tpdm_swao_prio_0>;
 					};
 				};
+				port@1{
+					reg=<1>;
+					tpdm_swao_prio_0_out_tgu:endpoint{
+						remote-endpoint =
+							<&tgu_in_tpdm_swao_prio_0>;
+					};
+				};
+
 			};
 		};
+
+                spmi_tgu0: tgu@10b0f000 {
+                        compatible = "qcom,coresight-tgu","arm,primecell";
+                     //   arm,primecell-periphid = <0x000bb999>;
+
+                        reg = <0x0 0x10b0f000 0x0 0x1000>;
+                        reg-names = "tgu-base";
+
+                        coresight-name = "coresight-tgu-spmi0";
+
+                        clocks = <&aoss_qmp>;
+                        clock-names = "apb_pclk";
+
+                        in-ports {
+                                port {
+                                        tgu_in_tpdm_swao_prio_0: endpoint{
+                                                remote-endpoint =
+                                                <&tpdm_swao_prio_0_out_tgu>;
+                                        };
+                                };
+                        };
+                };
+
+                ipcb_tgu: tgu@10b0e000 {
+                        compatible = "arm,primecell";
+                     //   arm,primecell-periphid = <0x000bb999>;
+                        reg = <0x0 0x10b0e000 0x0 0x1000>;
+                        reg-names = "tgu-base";
+
+                        coresight-name = "coresight-tgu-ipcb";
+
+                        clocks = <&aoss_qmp>;
+                        clock-names = "apb_pclk";
+                };
 
 		tpdm@10b0d000 {
 			compatible = "qcom,coresight-tpdm", "arm,primecell";
